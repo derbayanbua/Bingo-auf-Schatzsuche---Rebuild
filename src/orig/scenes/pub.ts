@@ -30,12 +30,10 @@ registerOrigScene('AS004-02', (scene: OrigScene) => {
   scene.on(MUSICBOX, 'mouseUp', () => {
     if (scene.busy) return;
     if (scene.hand !== 'OI007') {
-      if (scene.hand) returnHand();
+      if (scene.hand) returnHand(scene);
       return;
     }
-    scene.consumeHand(); // #stayHere: the coin is spent
-    inventarSound('OI007');
-    showInventar();
+    scene.consumeHand(); // #stayHere: the coin is spent (inventarSound)
     void scene.playSmacker('Hafenkneipe');
   });
 
@@ -60,27 +58,23 @@ registerOrigScene('AS004-02', (scene: OrigScene) => {
               scene.state.set('GITTER', 'opened', 'AS005-05');
               scene.state.set('HS4', 'activ', 'AS005-05');
               scene.state.set('ARNOLD', 'gotPower');
-              scene.consumeHand(); // #stayHere: the bar is eaten
-              inventarSound('OI014');
-              showInventar();
+              scene.consumeHand(); // #stayHere: the bar is eaten (inventarSound)
               await scene.talk('ArnoldTalk-2', { mouthCh: ARNOLD_MOUTH, block: false });
             });
             await scene.playSmacker('Gitter');
             return;
           }
-          // original: any other item -> no reaction; it goes back to the pocket
-          // [Prüfung erforderlich] (original keeps it in the hand until dropped elsewhere)
-          returnHand();
+          // any other item: no reaction, it stays in the hand (a drag returns it to its source)
           return;
         }
         return askPower();
       }
       if (st === 'gotpower') {
         if (!hand) void scene.talk('ArnoldTalk-3', { mouthCh: ARNOLD_MOUTH, block: false });
-        else returnHand();
+        else returnHand(scene);
         return;
       }
-      if (hand) returnHand();
+      if (hand) returnHand(scene);
     })();
   });
 
@@ -90,20 +84,19 @@ registerOrigScene('AS004-02', (scene: OrigScene) => {
     if (scene.busy) return;
     const hand = scene.hand;
     if (hand === 'OI025') {
-      scene.consumeHand();
-      inventarSound('OI025');
+      scene.consumeHand(); // #stayHere (inventarSound)
       placeCharacter(s, 'CH4', 'SP018');
       void scene.block(async () => {
         await scene.talk('AlfredTalk-2', { mouthCh: ALFRED_MOUTH, block: false });
         // setInventar(cc, getFreeInventar(cc), "OI068") – the shell slot just became free
         scene.ctx.give('OI068');
         inventarSound('OI068');
-        showInventar();
+        showInventar(scene);
       });
       return;
     }
     if (hand) {
-      returnHand();
+      returnHand(scene);
       return;
     }
     if (scene.talking) return; // cursor would be #make
@@ -118,9 +111,7 @@ registerOrigScene('AS004-02', (scene: OrigScene) => {
       const hand = scene.hand;
       if (get('REELING') === 'waitforjuice' && hand === 'OI013') {
         scene.state.set('REELING', 'gotJuice');
-        scene.consumeHand();
-        inventarSound('OI013');
-        showInventar();
+        scene.consumeHand(); // #stayHere (inventarSound)
         await scene.talk('ReelingTalk-3', { mouthCh: REELING_MOUTH });
         // playSmacker("Chaos", 1) + gTargetMovie AS017-02 (setCharacterScreen is done by AS017-02)
         await scene.playSmacker('Chaos');
@@ -131,7 +122,7 @@ registerOrigScene('AS004-02', (scene: OrigScene) => {
       const st = get('REELING');
       if (st === 'callbanana') {
         if (!hand) void scene.talk('ReelingTalk-1', { mouthCh: REELING_MOUTH, block: false });
-        else returnHand();
+        else returnHand(scene);
         return;
       }
       if ((st === 'ask' || st === 'waitforjuice') && !hand) {
@@ -140,7 +131,7 @@ registerOrigScene('AS004-02', (scene: OrigScene) => {
         void scene.talk('ReelingTalk-2', { mouthCh: REELING_MOUTH, block: false });
         return;
       }
-      if (hand) returnHand();
+      if (hand) returnHand(scene);
     })();
   });
 });

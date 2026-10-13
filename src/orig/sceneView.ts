@@ -5,7 +5,11 @@
 // Generic behaviours handled here:
 //   Two-State Handling  -> member pFirstMember/pLastMember per state, animates Base-N forward/backward
 //   Two-State / One-State / Mouse / Visible / Random Audio -> the original sounds of these objects
-//   Inventar im Adventurescreen -> item sprite visible while the engine object is visible
+//   Inventar im Adventurescreen -> item sprite visible while the engine object is visible; passiv =
+//     blend 0 but still hit (the held item with the same pId can be put back)
+//   Character Visibility -> an item dropped on Bingo/Puck is given to that figure
+//   Box + Inventar in Containerbox -> box animation, frame "Box" as overlay stage with BOX1..8
+//   Inventar Game Preference -> prefSlot() for every GS slot sprite
 //   Character Visibility -> Bingo/Puck parts only when chars[CHx].screen === scene
 //   Random Two-State Animation, Animation Random Visible, Animation Random-Delay Factor-Play,
 //   Two-State Animation (loop/pendulum), One-State Handling -> idle / click animations
@@ -13,7 +17,8 @@
 //   Music Controller / Ambient Controller -> applyMovieAudio() on mount
 // Engine objects without a score sprite (hand-written additions, GS "Zurück") are drawn as SVG on top.
 
-import { isVisible, objState, type SceneCtx, type SceneDef, type SceneObject } from '../scenes/engine';
+import type { CharId } from '../game/types';
+import { isDropSpot, isVisible, objState, type HandSource, type SceneCtx, type SceneDef, type SceneObject } from '../scenes/engine';
 import { RAW_SCENES } from '../scenes/generic';
 import { playSmacker as playSmk, type SmackerOptions } from './media';
 import { applyMovieAudio } from './movieAudio';
@@ -72,7 +77,28 @@ export interface OrigScene {
   state: { get(key: string, screen?: string): string | undefined; set(key: string, value: string, screen?: string): void };
   /** item in the hand (sprite 110) */
   readonly hand: string | null;
+  /** #stayHere: the held item is used up / stays at the target (inventarSound, HUD refresh) */
   consumeHand(): void;
+  /**
+   * sprite(110).member = item; mySourceSprite = source (#inHand). `source` decides where
+   * #returnToSource puts it back: a state key `{ key: 'OS27', value?: 'activ' }`, a function, 'pocket'
+   * (default) or 'lost'. See HandSource in scenes/engine.ts.
+   */
+  putInHand(item: string, source?: HandSource): void;
+  /** #aboutToReturn: the held item flies back to its source */
+  returnHand(): void;
+  /** showInventar(): HUD (coins, jokes, pocket, hand) + sync + save */
+  refresh(): void;
+  /**
+   * Inventar Game Preference (Shared 82) on a channel, key OS<ch> (missing = activ): passiv = blend 50,
+   * dropping pId -> activ (#stayHere), clicking an active slot puts pId into the hand. Replaces the
+   * channel's other handlers. `enabled()` false = ignore clicks (e.g. after the game started).
+   */
+  prefSlot(ch: number, pId: string, opts?: { enabled?: () => boolean; onChange?: () => void }): () => void;
+  /** state of all prefSlot()s != passiv (Taster Start.checkPrefs) */
+  checkPrefs(): boolean;
+  /** the box view (frame "Box") is open */
+  readonly boxOpen: boolean;
   /** go to another AS/GS movie */
   goto(movie: string): void;
   gotoBoard(board: string, pos: number, dir: number): void;
@@ -117,8 +143,23 @@ export interface OrigScene {
   /** puppetSprite(ch, on): score changes no longer touch this channel */
   puppet(ch: number, on?: boolean): void;
 
+  // ---- app glue (drag & drop of the hand item)
+  /** a pointer release from a drag (client coords): deliver it as mouseUp; false = outside the scene */
+  releaseAt(e: PointerEvent): boolean;
+  /** the press at this client point would put something into the hand (drag start) */
+  pickableAt(clientX: number, clientY: number): boolean;
+  /** emit mouseUp at the client point of `e` (a press that turned into a drag picks the item up) */
+  clickAt(e: PointerEvent): void;
+  /** client rectangle of the sprite that holds a state key (fly-back target), null if not shown */
+  sourceRect(key: string): DOMRect | null;
+
   destroy(): void;
   readonly alive: boolean;
+}
+
+/** true if per-scene Lingo ports are registered for the scene */
+export function hasOrigPort(id: string): boolean {
+  return (SETUPS.get(id)?.length ?? 0) > 0;
 }
 
 export type OrigSceneSetup = (scene: OrigScene) => void | (() => void);
@@ -165,13 +206,38 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
   const stage = new Stage({ originY: SCENE_TOP, className: 'scene-orig' });
   stage.cursorCh = ctx.ch === 'CH2' ? 'CH2' : 'CH1';
   const raw = RAW_SCENES[def.id];
-  const keyToCh = new Map<string, number>();
-  for (const o of raw?.objects ?? []) keyToCh.set(o.key, o.ch);
-  const chToObj = new Map<number, SceneObject>();
-  for (const o of def.objects) {
-    const ch = keyToCh.get(o.key);
-    if (ch !== undefined) chToObj.set(ch, o);
+  // several sprites can share one state key (e.g. two exits with the same HS key): pair the raw
+  // objects (one per sprite) with the engine objects of that key in order; surplus sprites of a key
+  // act as the last engine object of that key
+  const keyToChs = new Map<string, number[]>();
+  for (const o of raw?.objects ?? []) {
+    const l = keyToChs.get(o.key) ?? [];
+    if (!l.includes(o.ch)) l.push(o.ch);
+    keyToChs.set(o.key, l);
   }
+  const keyToCh = new Map<string, number>([...keyToChs].map(([k, l]) => [k, l[0]]));
+  const chToObj = new Map<number, SceneObject>();
+  const objCh = new Map<SceneObject, number>();
+  {
+    const used = new Map<string, number>();
+    for (const o of def.objects) {
+      const chs = keyToChs.get(o.key);
+      const i = used.get(o.key) ?? 0;
+      used.set(o.key, i + 1);
+      if (!chs || i >= chs.length) continue;
+      objCh.set(o, chs[i]);
+      chToObj.set(chs[i], o);
+    }
+    for (const [key, chs] of keyToChs) {
+      const last = [...def.objects].reverse().find((x) => x.key === key);
+      if (last) for (const ch of chs) if (!chToObj.has(ch)) chToObj.set(ch, last);
+    }
+  }
+  const refreshers = new Set<() => void>();
+  const prefSlots = new Map<number, () => string>();
+  /** open box view (frame "Box" overlay), see boxBehavior() */
+  let box: { stage: Stage; show(): void; slots: Map<string, Sprite>; close(): void } | null = null;
+  let boxAnim = false;
 
   const cleanups: (() => void)[] = [];
   const shownState = new Map<number, string>(); // twoState channel -> state shown
@@ -205,12 +271,22 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
     }
     // engine objects -> clicks
     const o = chToObj.get(sp.ch);
-    if (o) {
+    const boxB = sp.behavior('Box');
+    if (o && !boxB) {
       ends.push(stage.on(sp.ch, 'mouseUp', () => {
         if (busy()) return;
         clickObject(o);
       }));
       sp.cursor = o.kind === 'item' ? 'take' : o.kind === 'exit' || o.kind === 'boardExit' || o.kind === 'game' ? 'walk' : 'make';
+    }
+    if (boxB) ends.push(boxBehavior(sp, String(boxB.params?.pId ?? '')));
+    const cv = sp.behavior('Character Visibility');
+    if (cv) {
+      // Character Visibility.mouseUp: an item dropped on Bingo/Puck is given to that character
+      const id = String(cv.params?.pCharacterID ?? '') as CharId;
+      ends.push(stage.on(sp.ch, 'mouseUp', () => {
+        if (!busy() && ctx.hand && /^CH[1-9]$/.test(id)) ctx.giveHandTo(id);
+      }));
     }
     for (const b of sp.behaviors) {
       const p = b.params ?? {};
@@ -357,7 +433,7 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
 
   /** click on an engine object: app default handling + the Two-State/Blocker sounds */
   function clickObject(o: SceneObject) {
-    const ch = keyToCh.get(o.key);
+    const ch = objCh.get(o) ?? keyToCh.get(o.key);
     const hadHand = !!ctx.hand;
     const before = o.kind === 'twoState' ? objState(ctx, o) : undefined;
     h.activate(o);
@@ -398,7 +474,7 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
   function sync() {
     if (!alive) return;
     stage.cursorCh = ctx.ch === 'CH2' ? 'CH2' : 'CH1';
-    stage.cursorOverride = waitCount > 0 ? 'wait' : ctx.hand ? 'grabbing' : null;
+    stage.cursorOverride = waitCount > 0 ? 'wait' : ctx.hand ? 'grab' : null;
     for (const sp of stage.sprites.values()) {
       const cv = sp.behavior('Character Visibility');
       if (cv) {
@@ -406,11 +482,29 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
         sp.visible = ctx.s.chars[id]?.screen === def.id;
       }
       const o = chToObj.get(sp.ch);
-      if (o && player.frame === 1) {
+      if (o && player.frame === 1 && !prefSlots.has(sp.ch)) {
         const vis = isVisible(ctx, def, o);
         const interactive = o.kind !== 'deco' || !!o.onClick;
-        if (o.kind === 'item') sp.visible = vis;
-        sp.hot = vis && interactive;
+        if (o.kind === 'item') {
+          // Inventar im Adventurescreen: passiv = blend 0 but still clickable -> drop spot
+          const spot = isDropSpot(ctx, def, o);
+          sp.visible = vis || spot;
+          if (!vis) sp.blend = 0;
+          else if (sp.blend === 0) sp.blend = 100;
+          sp.hitHidden = spot;
+          sp.hot = (vis && interactive) || (spot && !!ctx.hand);
+          sp.props.pickup = vis && objState(ctx, o) === 'activ';
+          sp.props.sourceKey = o.key;
+        } else if (o.kind === 'use' && /^OS1\d\d$/.test(o.key)) {
+          // Inventar Game Preference as an engine object (GS032-01)
+          const st = (ctx.get(o.key) ?? 'activ').toLowerCase();
+          sp.blend = st === 'passiv' ? 50 : 100;
+          sp.hitRect = true;
+          sp.hot = vis;
+          sp.cursor = st === 'activ' ? 'take' : 'make';
+          sp.props.pickup = st === 'activ';
+          sp.props.sourceKey = o.key;
+        } else sp.hot = vis && interactive;
       }
       const ts = twoState.get(sp.ch);
       if (ts) {
@@ -437,7 +531,7 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
       for (const o of def.objects) {
         if (!isVisible(ctx, def, o)) continue;
         const interactive = o.kind !== 'deco' || !!o.onClick;
-        const ch = keyToCh.get(o.key);
+        const ch = objCh.get(o) ?? keyToCh.get(o.key);
         const onStage = ch !== undefined && stage.has(ch);
         if (!onStage) {
           const art = o.draw ? o.draw(ctx, objState(ctx, o)) : '';
@@ -461,7 +555,140 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
       }
     }
     svg.innerHTML = markup;
+    for (const f of [...refreshers]) f();
+    if (box) {
+      box.stage.cursorOverride = stage.cursorOverride;
+      box.show();
+      box.stage.updateCursor();
+    }
     stage.updateCursor();
+  }
+
+  // ------------------------------------------------------------ Box + Inventar in Containerbox
+  // Box (Shared 17): BOX0 state1/blocked/state2. Click: blocked -> Box-Blocked; with pId in the hand
+  // -> Box-Crack + state1 (the item stays in the hand); else Box-Open, Box-1..6 every 40 ms, state2,
+  // go("Box"). beginSprite with state2 (= back from the box): Box-6 -> Box-1 + Box-Close, state1.
+  // Frame "Box" (31) is shown as an overlay stage above frame 1 (the scene's sprites and the ports'
+  // handlers stay untouched): Inventar in Containerbox (Shared 19) slots BOX1..8, Hotspot-Frame
+  // left/right -> "Screen".
+  function boxBehavior(sp: Sprite, pId: string): () => void {
+    sp.cursor = 'look';
+    const st = () => (ctx.get('BOX0') ?? 'state1').toLowerCase();
+    const animate = async (from: number, to: number) => {
+      boxAnim = true;
+      const step = from < to ? 1 : -1;
+      for (let f = from; ; f += step) {
+        if (!alive || !stage.has(sp.ch)) break;
+        sp.setMember(movie.member(`Box-${f}`) ?? sp.member);
+        if (f === to) break;
+        await stage.wait(40);
+      }
+      boxAnim = false;
+    };
+    const close = () => {
+      void playEffect(movie.dir, 'Box-Close', 100);
+      void animate(6, 1).then(() => {
+        ctx.set('BOX0', 'state1');
+        h.persist();
+      });
+    };
+    if (st() === 'state2') close();
+    const off = stage.on(sp.ch, 'mouseUp', () => {
+      if (busy() || boxAnim || box) return;
+      if (ctx.hand) {
+        // item in the hand: only pId cracks a blocked box; anything else stays in the hand
+        if (ctx.hand === pId && st() === 'blocked') {
+          void playEffect(movie.dir, 'Box-Crack', 100);
+          ctx.set('BOX0', 'state1');
+          h.persist();
+        }
+        return;
+      }
+      if (st() === 'blocked') {
+        void playEffect(movie.dir, 'Box-Blocked', 100);
+        return;
+      }
+      void playEffect(movie.dir, 'Box-Open', 100);
+      void animate(1, 6).then(async () => {
+        if (!alive) return;
+        ctx.set('BOX0', 'state2');
+        h.persist();
+        await openBox(close);
+      });
+    });
+    return () => off();
+  }
+
+  async function openBox(onClose: () => void) {
+    if (box || !movie.frame('Box')) return;
+    const bs = new Stage({ originY: SCENE_TOP, className: 'scene-orig ostage-box' });
+    bs.cursorCh = stage.cursorCh;
+    await bs.loadFrame(movie, 'Box', (s) => isSceneSprite(movie.libs[s.castLib - 1], s));
+    if (!alive) return bs.destroy();
+    const slots = new Map<string, Sprite>();
+    const shows: (() => void)[] = [];
+    for (const sp of bs.sprites.values()) {
+      const cb = sp.behavior('Inventar in Containerbox');
+      const hf = sp.behavior('Hotspot-Frame');
+      if (cb) {
+        const key = `BOX${String(cb.params?.pInventarPosition ?? '').replace(/\D/g, '')}`;
+        slots.set(key, sp);
+        const empty = sp.member;
+        const item = () => ctx.get(key) ?? 'OI000';
+        const show = () => {
+          const it = item();
+          if (it !== 'OI000') {
+            sp.setMember(movie.member(it) ?? empty);
+            sp.blend = 100;
+          } else {
+            sp.setMember(empty);
+            sp.blend = 0;
+          }
+          sp.cursor = it !== 'OI000' ? 'take' : 'make';
+          sp.props.pickup = it !== 'OI000';
+          sp.props.sourceKey = key;
+        };
+        sp.hitHidden = true;
+        sp.hitRect = true;
+        shows.push(show);
+        show();
+        bs.on(sp.ch, 'mouseUp', () => {
+          if (busy()) return;
+          const it = item();
+          const hand = ctx.hand;
+          if (hand) {
+            if (it !== 'OI000') return ctx.returnHand(); // place taken: #aboutToReturn
+            ctx.set(key, hand); // #stayHere
+            ctx.consumeHand();
+          } else {
+            if (it === 'OI000') return;
+            ctx.set(key, 'OI000');
+            ctx.putInHand(it, { key, screen: def.id, value: it });
+          }
+          h.persist();
+          show();
+        });
+      } else if (hf) {
+        sp.cursor = 'walk';
+        bs.on(sp.ch, 'mouseUp', () => {
+          if (busy() || ctx.hand) return;
+          closeBox();
+        });
+      }
+    }
+    const el = bs.el;
+    el.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:500;border-radius:0;box-shadow:none';
+    for (const ev of ['pointerdown', 'pointerup', 'pointermove', 'click']) el.addEventListener(ev, (e) => e.stopPropagation());
+    const closeBox = () => {
+      if (!box) return;
+      box = null;
+      bs.destroy();
+      onClose();
+      sync();
+    };
+    box = { stage: bs, slots, show: () => shows.forEach((f) => f()), close: closeBox };
+    stage.el.append(el);
+    sync();
   }
 
   async function block<T>(p: Promise<T> | (() => Promise<T>)): Promise<T> {
@@ -509,6 +736,95 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
       return ctx.hand;
     },
     consumeHand: () => ctx.consumeHand(),
+    putInHand: (item, source) => ctx.putInHand(item, source),
+    returnHand: () => ctx.returnHand(),
+    refresh: () => ctx.refresh(),
+    prefSlot(ch, pId, opts = {}) {
+      const key = `OS${ch}`;
+      if (ctx.get(key) === undefined) ctx.set(key, 'activ'); // loadData: missing line -> activ
+      const st = () => (ctx.get(key) ?? 'activ').toLowerCase();
+      const enabled = () => !opts.enabled || opts.enabled();
+      const show = () => {
+        if (!stage.has(ch)) return;
+        const sp = stage.sprite(ch);
+        const on = st() !== 'passiv';
+        sp.blend = on ? 100 : 50;
+        sp.cursor = on ? 'take' : 'make';
+        sp.hitRect = true; // a 70x70 field: thin items (hook) must hit everywhere
+        sp.props.pickup = on && enabled();
+        sp.props.sourceKey = key;
+      };
+      prefSlots.set(ch, st);
+      refreshers.add(show);
+      stage.off(ch);
+      show();
+      const off = stage.on(ch, 'mouseUp', () => {
+        if (busy() || !enabled()) return;
+        const hand = ctx.hand;
+        if (hand) {
+          if (st() === 'passiv' && hand === pId) {
+            ctx.set(key, 'activ');
+            ctx.consumeHand(); // #stayHere
+          } else ctx.returnHand(); // #aboutToReturn
+        } else if (st() === 'activ') {
+          ctx.set(key, 'passiv');
+          ctx.putInHand(pId, { key, screen: def.id });
+        } else return;
+        h.persist();
+        show();
+        opts.onChange?.();
+      });
+      return () => {
+        off();
+        refreshers.delete(show);
+        prefSlots.delete(ch);
+      };
+    },
+    checkPrefs: () => [...prefSlots.values()].every((st) => st() !== 'passiv'),
+    get boxOpen() {
+      return !!box;
+    },
+    releaseAt(e) {
+      if (!alive) return false;
+      if (box) {
+        const r = box.stage.el.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) {
+          box.stage.releaseAt(e);
+          return true;
+        }
+      }
+      if (!stage.spriteAtClient(e.clientX, e.clientY)) {
+        // sprite-less engine objects (SVG layer)
+        const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.ostage-svg [data-key]') as SVGGElement | null;
+        const o = el && def.objects.find((x) => x.key === el.dataset.key);
+        if (o) {
+          if (!busy()) clickObject(o);
+          return true;
+        }
+      }
+      const r = stage.el.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX >= r.right || e.clientY < r.top || e.clientY >= r.bottom) return false;
+      stage.releaseAt(e);
+      return true;
+    },
+    pickableAt(x, y) {
+      if (!alive || busy()) return false;
+      const s = box ? box.stage.spriteAtClient(x, y) : stage.spriteAtClient(x, y);
+      return !!s?.props.pickup;
+    },
+    clickAt(e) {
+      if (!alive) return;
+      if (box) box.stage.releaseAt(e);
+      else stage.releaseAt(e);
+    },
+    sourceRect(key) {
+      if (!alive) return null;
+      const find = (st: Stage) => [...st.sprites.values()].find((s) => s.props.sourceKey === key && s.visible);
+      const inBox = box ? find(box.stage) : undefined;
+      if (inBox && box) return box.stage.clientRect(inBox.rect());
+      const sp = find(stage) ?? (keyToCh.has(key) && stage.has(keyToCh.get(key)!) ? stage.sprite(keyToCh.get(key)!) : undefined);
+      return sp && sp.w ? stage.clientRect(sp.rect()) : null;
+    },
     goto: (m) => ctx.gotoScene(m.replace(/^[A-Za-z]+_/, '')),
     gotoBoard: (b, p, d) => ctx.gotoBoard(b, p, d),
     say: (t) => ctx.say(t),
@@ -564,6 +880,8 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
     destroy() {
       if (!alive) return;
       alive = false;
+      box?.stage.destroy();
+      box = null;
       stopTalk();
       for (const c of cleanups) c();
       player.destroy();
@@ -574,6 +892,12 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
     },
   };
 
+  // Inventar Game Preference slots of game screens (ports may re-register them with their own options)
+  const gameFrame = movie.labelFrame('Game') ?? 15;
+  for (const sp of [...stage.sprites.values()]) {
+    const p = sp.behavior('Inventar Game Preference')?.params;
+    if (p?.pId) scene.prefSlot(sp.ch, String(p.pId), { enabled: () => player.frame < gameFrame });
+  }
   sync();
   for (const setup of SETUPS.get(def.id) ?? []) {
     const c = setup(scene);

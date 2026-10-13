@@ -12,33 +12,19 @@ export function rnd(a: number, b: number): number {
   return a + Math.floor(Math.random() * (b - a + 1));
 }
 
-/**
- * Re-render the HUD (pocket) after the hand/pocket was changed outside the engine's default
- * handling. The scene context has no direct HUD refresh; gotoScene(<same scene>) only re-syncs the
- * mounted original view and redraws the HUD.
- */
+/** showInventar(): redraw the HUD (pocket, coins, jokes) after scene logic changed it */
 export function refreshHud(scene: OrigScene): void {
-  scene.ctx.gotoScene(scene.id);
+  scene.refresh();
 }
 
 /** sprite(110).myMode = #aboutToReturn: the held item goes back to where it came from. */
 export function returnHand(scene: OrigScene): void {
-  const it = scene.hand;
-  if (!it) return;
-  if (it === 'OI007') scene.ctx.addCoins(1);
-  else if (it === 'OI006') scene.ctx.addJokes(1);
-  else scene.ctx.give(it); // the source slot was emptied when the item was lifted
-  scene.consumeHand();
-  refreshHud(scene);
+  scene.returnHand();
 }
 
-/** sprite(110).myMode = #stayHere: item used up, inventarSound(OIxxx). */
+/** sprite(110).myMode = #stayHere: item used up (inventarSound + HUD refresh by the app). */
 export function consumeHandItem(scene: OrigScene): void {
-  const it = scene.hand;
-  if (!it) return;
-  scene.consumeHand();
-  void scene.sound(`Shared_Inventar/${it}-Sound`, 100);
-  refreshHud(scene);
+  if (scene.hand) scene.consumeHand();
 }
 
 /** Effect with a stop() and an end signal (soundEffect + soundBusy(ch) / sound stop ch). */
@@ -244,39 +230,10 @@ export class GameButtons {
     return true;
   }
 
-  /** Inventar Game Preference */
+  /** Inventar Game Preference (generic slot of the scene view; taking it out puts it into the hand) */
   private prefSlot(ch: number, item: string) {
-    const scene = this.scene;
-    if (!scene.stage.has(ch)) return;
-    const key = `OS${ch}`;
-    const st = () => (scene.state.get(key) ?? 'activ').toLowerCase();
-    const sp = scene.sprite(ch);
-    const show = () => {
-      if (!scene.stage.has(ch)) return;
-      sp.blend = st() === 'activ' ? 100 : 50;
-      sp.cursor = st() === 'activ' ? 'take' : 'make';
-    };
-    show();
-    scene.on(ch, 'mouseDown', () => {
-      if (scene.busy || scene.hand || st() === 'passiv') return;
-      // original: the item goes into the hand (sprite 110); here it goes back into the pocket
-      // (the scene API cannot put an item into the hand) [Prüfung erforderlich]
-      if (!scene.ctx.give(item)) return;
-      scene.state.set(key, 'passiv');
-      void scene.sound(`Shared_Inventar/${item}-Sound`, 100);
-      show();
-      refreshHud(scene);
-    });
-    scene.on(ch, 'mouseUp', () => {
-      if (!scene.hand) return;
-      if (st() === 'passiv' && scene.hand === item) {
-        scene.state.set(key, 'activ');
-        show();
-        consumeHandItem(scene);
-        return;
-      }
-      returnHand(scene);
-    });
+    if (!this.scene.stage.has(ch)) return;
+    this.offs.push(this.scene.prefSlot(ch, item, { enabled: () => !this.game }));
   }
 
   /** sprite(109).member = member("Game-Ready") */

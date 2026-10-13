@@ -3,7 +3,7 @@
 // position. Backdrops are drawn procedurally (own artwork).
 
 import raw from '../data/scenes.json';
-import { portraitSVG } from '../ui/art';
+import { itemSVG, portraitSVG } from '../ui/art';
 import { registerScene, getScene, type SceneCtx, type SceneDef, type SceneObject } from './engine';
 import { sceneTheme, sceneTitle, type Theme } from './meta';
 
@@ -151,42 +151,59 @@ function buildObjects(id: string, sc: RawScene): SceneObject[] {
         };
       }
       if (o.kind === 'item' && o.invLink) {
-        const l = o.invLink;
+        // Inventar-Link: the state is mirrored into the linked screen (engine `link`)
+        base.link = o.invLink;
+      }
+      if (o.kind === 'pref') {
+        // Inventar Game Preference: required item slot of a game screen (OS<ch>, missing = activ)
+        base.label = `Benötigter Gegenstand: ${o.item ?? ''}`;
+        const st = (ctx: SceneCtx) => (ctx.get(o.key) ?? 'activ').toLowerCase();
+        base.draw = (ctx) => `<g transform="translate(${o.x + o.w / 2} ${o.y + o.h / 2})" opacity="${st(ctx) === 'passiv' ? 0.5 : 1}"><circle r="34" fill="rgba(255,255,255,.15)" stroke="#ffd23f" stroke-width="3" stroke-dasharray="6 5"/>${o.item ? itemSVG(o.item).replace('<svg ', '<svg x="-28" y="-28" width="56" height="56" ') : ''}</g>`;
+        base.onUse = (ctx, item) => {
+          // mouseUp: passiv + pId -> activ (#stayHere); anything else #aboutToReturn
+          if (st(ctx) !== 'passiv' || item !== o.item) return false;
+          ctx.set(o.key, 'activ');
+          return true;
+        };
         base.onClick = (ctx) => {
-          // Inventar-Link: mirror the state into the linked screen
-          if (ctx.get(o.key) === 'locked') return false;
-          if (!ctx.give(o.item!)) { ctx.say('Meine Hosentasche ist voll!'); return true; }
+          // mouseDown on an active slot: the item goes back into the hand
+          if (st(ctx) !== 'activ' || !o.item) return true;
           ctx.set(o.key, 'passiv');
-          ctx.set(l.key, 'passiv', l.screen);
+          ctx.putInHand(o.item, { key: o.key, screen: id });
           return true;
         };
       }
-      if (o.kind === 'item') {
-        // put the item back onto its own place (same pId)
-        base.onUse = (ctx, item) => undefined;
-      }
-      if (o.kind === 'pref') {
-        // Inventar Game Preference: required item slot of a game screen
-        base.label = 'Benötigter Gegenstand';
-        base.draw = (ctx, st) => `<g transform="translate(${o.x + o.w / 2} ${o.y + o.h / 2})"><circle r="34" fill="rgba(255,255,255,.15)" stroke="#ffd23f" stroke-width="3" stroke-dasharray="6 5"/><text y="6" text-anchor="middle" font-size="14" fill="#fff">${st === 'activ' ? '✔' : 'Gegenstand'}</text></g>`;
-        base.onUse = (ctx, item) => {
-          if (item !== o.item) return false;
-          ctx.set(o.key, 'activ');
-          return false; // the item stays in the pocket (original: shows 50 % copy, item returns)
-        };
-      }
       if (o.kind === 'box') {
+        // Box (Shared 17) for the vector view; the original view has the full box (sceneView.ts)
         base.label = 'Kiste';
         base.onClick = (ctx) => {
           const st = ctx.get('BOX0') ?? 'state1';
           if (st === 'blocked') { ctx.say('Die Kiste klemmt.'); return true; }
-          ctx.say('[Prüfung erforderlich] Die Kisten-Ansicht ist noch nicht umgesetzt.');
+          // take the first item out (into the hand; it returns to its place when not used)
+          for (let i = 1; i <= 8; i++) {
+            const it = ctx.get(`BOX${i}`) ?? 'OI000';
+            if (it === 'OI000') continue;
+            ctx.set(`BOX${i}`, 'OI000');
+            ctx.putInHand(it, { key: `BOX${i}`, screen: id, value: it });
+            return true;
+          }
+          ctx.say('Die Kiste ist leer.');
           return true;
         };
         base.onUse = (ctx, item) => {
-          if ((ctx.get('BOX0') ?? 'state1') === 'blocked' && item === o.lockItem) {
-            ctx.set('BOX0', 'state1');
-            ctx.say('Krach! Die Kiste ist auf.');
+          if ((ctx.get('BOX0') ?? 'state1') === 'blocked') {
+            if (item === o.lockItem) {
+              ctx.set('BOX0', 'state1');
+              ctx.say('Krach! Die Kiste ist auf.');
+            }
+            return false;
+          }
+          // put it into the first free place
+          for (let i = 1; i <= 8; i++) {
+            if ((ctx.get(`BOX${i}`) ?? 'OI000') === 'OI000') {
+              ctx.set(`BOX${i}`, item);
+              return true;
+            }
           }
           return false;
         };
@@ -207,7 +224,8 @@ export function registerGenericScenes() {
     const def: SceneDef = {
       id,
       title: sceneTitle(id),
-      reconstructed: sc.custom.length === 0 && !isGame,
+      // only generic behaviours -> nothing left to port
+      reconstructed: sc.custom.length === 0,
       note: isGame
         ? 'Dieses Minispiel ist noch nicht umgesetzt. Ausgänge und benötigte Gegenstände sind aus dem Original übernommen.'
         : sc.custom.length

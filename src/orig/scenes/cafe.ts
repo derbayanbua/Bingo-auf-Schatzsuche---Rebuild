@@ -186,7 +186,7 @@ function startGame(scene: OrigScene): () => void {
     const ch = scene.ctx.s.chars[scene.ctx.ch];
     // subCoins(n): only when enough coins (else nothing)
     if (n > 0 || ch.coins >= -n) ch.coins += n;
-    showInventar();
+    showInventar(scene);
   };
 
   const update = (c: Cup, now: number) => {

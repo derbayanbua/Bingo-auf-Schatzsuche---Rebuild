@@ -39,8 +39,16 @@ Files in `src/orig/scenes/` are imported automatically (`scenes/index.ts` uses `
 ### `OrigScene` API (see `sceneView.ts`)
 * Sprites: `sprite(ch)`, `member(name)`, `on(ch, ev, fn)`, `off(ch)`, `playSequence(ch, 'Base-1', 'Base-9', fps, {loop, pendulum})`,
   `onTick(fn)`, `wait(ms)`, `stage`, `movie`, `el`.
-* State/engine: `state.get/set(key, value, screen?)`, `hand`, `consumeHand()`, `object(key)`, `channelOf(key)`, `sync()`,
-  `goto('AS004-01')`, `gotoBoard('SP004', pos, dir)`, `say(text)` (toast; prefer `talk`).
+* State/engine: `state.get/set(key, value, screen?)`, `object(key)`, `channelOf(key)`, `sync()`,
+  `goto('AS004-01')`, `gotoBoard('SP004', pos, dir)`, `say(text)` (toast; prefer `talk`), `refresh()` (= showInventar:
+  HUD + save; `ctx.addCoins/addJokes/give` refresh by themselves), `ctx.jumpToCurrent()`, `ctx.showScene(id)`.
+* Hand (sprite 110): `hand`, `putInHand(item, source?)` – source = `{ key, screen?, value?, links? }` (state key set to
+  `value`/`activ` on #returnToSource), a function, `'pocket'` (default) or `'lost'`; `consumeHand()` = #stayHere
+  (plays inventarSound), `returnHand()` = #aboutToReturn (flies back). `prefSlot(ch, pId, {enabled, onChange})` =
+  Inventar Game Preference, `checkPrefs()`. Drag start: set `sprite.props.pickup = true` on sprites whose click puts
+  something into the hand (a press there can then be dragged); `sprite.hitHidden` / `hitRect` for blend-0 or slot hits.
+  Generic: Inventar im Adventurescreen (put back onto the passiv place), Character Visibility (give to Bingo/Puck),
+  Box + Inventar in Containerbox (frame "Box" as overlay, `boxOpen`), Inventar Game Preference of every GS.
 * Voice: `talk(member, {mouthCh?, mouthFrames?, speaker?, mixing?, block? = true})` → Promise (end of line);
   `playerTalk(n, opts)`; `stopTalk()`; `talking` (= soundBusy(4)). Speaker defaults to the `<Name>Talk-n` prefix.
   Subtitles come from `transcripts.json` (`"<Cast>/<Member>"`), missing keys → no bubble; global on/off in Einstellungen.

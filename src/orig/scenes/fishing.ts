@@ -166,7 +166,7 @@ function startGame(scene: OrigScene): () => void {
             inventarSound('OI006');
             ctx.addJokes(1);
           }
-          showInventar();
+          showInventar(scene);
           resetDrift(drifts.find((d) => d.ch === hooked)!, performance.now());
           hooked = HOOK;
         }
@@ -236,15 +236,25 @@ function startGame(scene: OrigScene): () => void {
     offs.push(scene.on(KARAFFE, 'mouseWithin', () => {
       karaffe.cursor = karaffeState() !== 'passiv' && hooked === KARAFFE ? 'take' : 'make';
     }));
-    offs.push(scene.on(KARAFFE, 'mouseDown', () => {
-      if (karaffeState() === 'passiv' || hooked !== KARAFFE || scene.hand) return;
-      // original: OI008 goes into the hand (source 23); dropped into the pocket it is kept, dropped
-      // elsewhere it returns to the drifting carafe. Touch port: straight into the pocket.
-      if (!ctx.give('OI008')) return; // pocket full -> stays on the hook [Prüfung erforderlich]
+    const takeKaraffe = () => {
+      if (karaffeState() === 'passiv' || hooked !== KARAFFE || scene.hand || scene.busy) return;
+      // original mouseDown: OI008 goes into the hand (source 23); dropped into the pocket it is kept,
+      // anything else returns it to the carafe on the hook (sprite 23 mouseUp -> activ again)
       hooked = HOOK;
       scene.state.set('OI008', 'passiv');
-      inventarSound('OI008');
-      showInventar();
+      scene.putInHand('OI008', () => {
+        if (!scene.alive) {
+          scene.state.set('OI008', 'activ'); // the carafe drifts again on the next visit
+          return;
+        }
+        scene.state.set('OI008', 'activ');
+        hooked = KARAFFE;
+      });
+    };
+    // tap = click (mouseUp); a drag picks it up through the scene's pickup test
+    offs.push(scene.on(KARAFFE, 'mouseUp', takeKaraffe));
+    offs.push(scene.onTick(() => {
+      karaffe.props.pickup = karaffeState() !== 'passiv' && hooked === KARAFFE;
     }));
   }
 

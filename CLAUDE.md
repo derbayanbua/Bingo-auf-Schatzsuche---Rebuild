@@ -85,18 +85,23 @@ Fertig (Meilenstein 1):
   Handportiert: AS001-02 (Fenster schließt sich), Witzomat AS006/AS048.
 * Spielstand: Autosave (localStorage), Download `bingo-schatzsuche-spielstand.json`, Upload mit Validierung/Bestätigung, Versionsfeld + Migration.
 * Responsive: Desktop, Smartphone hoch (scrollbares großes Brett, zweizeiliges HUD), Smartphone quer (HUD als Seitenleiste). Maus, Touch, Tastatur.
+* Gegenstandsmodell wie im Original (Sprite 110, `app.ts` hand/`HandFrom`): Aufnehmen legt in die Hand (folgt dem Zeiger, Touch: über dem Finger + HUD-Chip),
+  Ablegen per Drag&Drop oder Tippen-Tippen; nicht angenommen → fliegt zur Quelle zurück. Rücklegen auf den eigenen (unsichtbaren) Platz,
+  Taschenplätze (belegt → zurück), Geben an Bingo/Puck/NPCs (nicht Münzen/Witzkarten), Kisten-Ansicht (Box + 8 Plätze, Originalgrafik),
+  Spiel-Voraussetzungen (`prefSlot`), Szenen-API `putInHand/returnHand/refresh` (siehe `src/orig/README.md`). Abweichung: Witzkarte aus dem
+  Witzomaten geht nicht verloren, wenn sie woanders abgelegt wird (landet auf dem Witzstapel).
 
 Offen / nächste Schritte (Priorität):
 1. Szenenspezifische Lingo-Logik portieren (Liste: `custom` je Szene in `src/data/scenes.json`; Details `analysis/STORY_scenes.md` §2). Kapitel 1 zuerst: AS004-02 (Alfred/Arnold/Reeling), AS009-01/02/04, AS011-01, AS012-01, Leuchtturm AS005-xx, AS017-01/02 → Kapitel 2.
 2. Minispiele GS001-01 (Puzzle), GS016-01 (Angeln), GS008-01 (Café), GS009-01/02, GS005-xx, dann Kapitel 2/3.
-3. Kisten-Ansicht (Box mit 8 Ablageplätzen), Pocket (Hosentaschen aller Figuren), Tipps (5 Münzen; Texte neu formulieren, nicht Originaltexte übernehmen).
+3. Pocket (Hosentaschen aller Figuren), Tipps (5 Münzen; Texte neu formulieren, nicht Originaltexte übernehmen).
 4. Story-„Videos“ (Smacker) durch eigene Bildfolgen/Texte ersetzen.
 5. Musik/Sprache (eigene Produktion nötig).
 
 Bekannte Abweichungen / Fehler:
-* Szenen ohne portierte Speziallogik zeigen gestrichelte Platzhalter mit `[Prüfung erforderlich]`-Hinweis.
-* Minispiele sind Platzhalter (nur Zurück-Knopf); dadurch ist ein vollständiger Durchlauf noch nicht möglich.
-* Kisten (Box) zeigen nur einen Hinweis statt der Ablage.
+* Szenen mit noch nicht portierter Speziallogik zeigen den `[Prüfung erforderlich]`-Hinweis (nicht bei registrierten Ports / rein generischen Szenen).
+* Minispiele ohne Port sind Platzhalter (nur Zurück-Knopf).
+* Ohne Originalgrafik (Vektoransicht) nimmt ein Klick auf die Kiste den ersten Gegenstand heraus bzw. legt den gehaltenen in den ersten freien Platz.
 * Figurennamen CH3/5/6/8 unbekannt.
 
 ## Original-Assets (optional, nur private Nutzung)

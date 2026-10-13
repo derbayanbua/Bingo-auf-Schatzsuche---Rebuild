@@ -260,6 +260,10 @@ export class Sprite {
   cursor: string | null = null;
   /** false = never receives pointer events (decoration) */
   hot = false;
+  /** Lingo: blend 0 sprites are invisible but still get mouse events (drop spots, hidden buttons) */
+  hitHidden = false;
+  /** hit test by rectangle instead of the alpha mask (slots, fields) */
+  hitRect = false;
   private _visible = true;
   private _blend = 100;
   private stage: Stage;
@@ -363,11 +367,11 @@ export class Sprite {
 
   /** point (stage coords) inside an opaque pixel; shapes / members without bitmap use their rect. */
   hit(x: number, y: number): boolean {
-    if (!this._visible || this._blend <= 0) return false;
+    if (!this._visible || (this._blend <= 0 && !this.hitHidden)) return false;
     const r = this.rect();
     if (x < r.left || y < r.top || x >= r.right || y >= r.bottom) return false;
     const url = this.member?.url;
-    if (!url) return true;
+    if (!url || this.hitRect) return true;
     const am = alphaOf(url);
     if (!am) return true; // not decoded yet / unreadable: rectangle
     const px = Math.floor(((x - r.left) * am.w) / this.w);
@@ -589,6 +593,37 @@ export class Stage {
     const s = this.hitTest(pt.x, pt.y);
     this.down = s;
     if (s) this.emit(s, 'mouseDown', e, pt);
+  }
+
+  /**
+   * Deliver a pointer release at a client position (drag & drop from outside the stage): mouseUp of
+   * the topmost hot sprite there, else onBackground. Returns the sprite or null (also when the point
+   * lies outside the stage).
+   */
+  releaseAt(e: PointerEvent): Sprite | null {
+    const r = this.el.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX >= r.right || e.clientY < r.top || e.clientY >= r.bottom) return null;
+    const pt = this.toStage(e);
+    const s = this.hitTest(pt.x, pt.y);
+    if (s) this.emit(s, 'mouseUp', e, pt);
+    else this.onBackground?.(e, pt);
+    this.down = null;
+    return s;
+  }
+
+  /** topmost hot sprite at a client position (null outside the stage) */
+  spriteAtClient(clientX: number, clientY: number): Sprite | null {
+    const r = this.el.getBoundingClientRect();
+    if (clientX < r.left || clientX >= r.right || clientY < r.top || clientY >= r.bottom) return null;
+    const pt = this.toStage({ clientX, clientY });
+    return this.hitTest(pt.x, pt.y);
+  }
+
+  /** client rectangle of a stage rectangle (stage coordinates incl. originY) */
+  clientRect(r: { left: number; top: number; right: number; bottom: number }): DOMRect {
+    const b = this.el.getBoundingClientRect();
+    const k = (b.width || 1) / this.width;
+    return new DOMRect(b.left + r.left * k, b.top + (r.top - this.originY) * k, (r.right - r.left) * k, (r.bottom - r.top) * k);
   }
 
   private onUp(e: PointerEvent) {

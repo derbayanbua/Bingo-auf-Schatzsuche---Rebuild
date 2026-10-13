@@ -4,8 +4,8 @@
 // Original Interface behaviours ported locally (sprites 101-109 live in the status bar, which the
 // scene view does not show):
 //   * "Inventar Game Preference" (Shared/Lingo 82): slot OS<ch> passiv = blend 50; dropping item pId
-//     -> activ (item consumed, #stayHere). Clicking an active slot takes the item out again
-//     (original: into the hand; here: back into the pocket [Prüfung erforderlich: Hand-API fehlt]).
+//     -> activ (item consumed, #stayHere). Clicking an active slot takes the item back into the hand
+//     (OrigScene.prefSlot).
 //   * "Taster Start" (Shared/Interface 50): Game-Start when all slots != passiv (go(#next)), else
 //     Game-Back (back to gGameBackMovie). mouseDown "Splash".
 //   * "Taster Stop" (53): mouseDown "Splash", mouseUp -> back to gGameBackMovie via
@@ -88,36 +88,8 @@ export function prefSlots(scene: OrigScene): () => boolean {
     const sp = scene.sprite(ch);
     const id = String(sp.behavior('Inventar Game Preference')?.params?.pId ?? sp.name);
     slots.push({ ch, id });
-    const key = `OS${ch}`;
-    // loadData: missing line -> activ
-    if (scene.state.get(key) === undefined) scene.state.set(key, 'activ');
-    const show = () => (sp.blend = scene.state.get(key) === 'passiv' ? 50 : 100);
-    show();
-    sp.hot = true;
-    sp.cursor = 'take';
-    scene.off(ch);
-    scene.on(ch, 'mouseUp', () => {
-      if (scene.busy) return;
-      const st = scene.state.get(key);
-      if (scene.hand) {
-        if (st === 'passiv' && scene.hand === id) {
-          scene.consumeHand();
-          scene.state.set(key, 'activ');
-          void scene.sound(`${id}-Sound`, 100); // inventarSound(#stayHere)
-          show();
-          scene.sync();
-        }
-        return;
-      }
-      if (st === 'activ') {
-        // original: item goes into the hand (sprite 110); here back into the pocket
-        if (scene.ctx.give(id)) {
-          scene.state.set(key, 'passiv');
-          show();
-          scene.sync();
-        }
-      }
-    });
+    // only on the Intro frame (the Game frames start at 15)
+    scene.prefSlot(ch, id, { enabled: () => scene.frame < 15 });
   }
   return () => slots.every((s) => scene.state.get(`OS${s.ch}`) !== 'passiv');
 }

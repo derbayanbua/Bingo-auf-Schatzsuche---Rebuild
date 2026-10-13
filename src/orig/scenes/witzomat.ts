@@ -3,7 +3,7 @@
 // AS0xx-02: framescript (Message sprite 13), Hebel (11), Kartenschacht (12).
 
 import { registerOrigScene, type OrigScene } from '../sceneView';
-import { inventarSound, markPorted, showInventar, showMovie } from './ch1util';
+import { markPorted, showMovie } from './ch1util';
 
 function outside(target: string) {
   return (scene: OrigScene) => {
@@ -128,6 +128,8 @@ function machine(scene: OrigScene) {
   window.addEventListener('pointercancel', onUpAnywhere);
 
   // Kartenschacht: click at frame 6 -> card comes out (frame 11); mouseDown at 11 -> card taken
+  // the card can be dragged out of the slot (drag start = pickup)
+  scene.onTick(() => (klappe.sp.props.pickup = klappe.frame === 11 && !scene.hand));
   scene.on(KLAPPE, 'mouseWithin', () => {
     klappe.sp.cursor = klappe.frame === 11 ? 'take' : 'make';
   });
@@ -138,12 +140,10 @@ function machine(scene: OrigScene) {
   scene.on(KLAPPE, 'mouseDown', () => {
     if (scene.busy || scene.hand) return;
     if (klappe.frame === 11) {
-      // original: OI006 goes into the hand (source 0) and is dropped onto "Drop Jokes" (addJokes(1)).
-      // Touch port: the card goes straight onto the joke pile. [Prüfung erforderlich: dropping it
-      // anywhere else loses the card in the original]
-      scene.ctx.addJokes(1);
-      inventarSound('OI006');
-      showInventar();
+      // original: OI006 goes into the hand (mySourceSprite 0) and is dropped onto "Drop Jokes" (the
+      // joke pile, addJokes(1)). Source 0 would lose the card when it is dropped elsewhere; here it
+      // lands on the joke pile anyway (deviation: no lost cards).
+      scene.putInHand('OI006', 'pocket');
       klappe.mode = 'forward';
     }
   });

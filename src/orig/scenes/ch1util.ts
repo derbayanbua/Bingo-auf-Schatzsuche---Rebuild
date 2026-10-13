@@ -1,9 +1,6 @@
 // Shared helpers for the chapter-1 ports (pub, Witzomat, café, fishing).
 // No registerOrigScene() here – this module is only imported by the ports.
-//
-// Some original effects (showInventar after a coin/joke/item change, jumpToCurrentCharacter without
-// the Hotspot-SP "field occupied" check) need the app controller; it is reachable as window.bingo.
-// [Prüfung erforderlich] A public App hook (e.g. ctx.refreshHud()/ctx.jumpToCurrent()) would be cleaner.
+// App effects go through the public scene context (ctx.refresh / jumpToCurrent / showScene).
 
 import type { CharId, GameState } from '../../game/types';
 import { BOARDS, pointId } from '../../game/data';
@@ -12,24 +9,14 @@ import { getScene } from '../../scenes/engine';
 import type { OrigScene } from '../sceneView';
 import { playInventarSound } from '../sound';
 
-/** the App instance (main.ts: window.bingo) */
-function app(): any {
-  return (globalThis as any).bingo ?? null;
-}
-
-/** showInventar(): redraw the HUD (coins, jokes, pocket) */
-export function showInventar(): void {
-  try {
-    app()?.renderHud?.();
-    app()?.persist?.(); // stopMovie: save(castLib("Active"))
-  } catch {
-    /* ignore */
-  }
+/** showInventar(): redraw the HUD (coins, jokes, pocket) + save */
+export function showInventar(scene: OrigScene): void {
+  if (scene.alive) scene.refresh();
 }
 
 /** sprite(110).myMode = #aboutToReturn: the held item goes back to its source */
-export function returnHand(): void {
-  app()?.returnHand?.();
+export function returnHand(scene: OrigScene): void {
+  scene.returnHand();
 }
 
 /** inventarSound(OIxxx) */
@@ -81,23 +68,16 @@ export function placeCharacter(s: GameState, ch: CharId, board: string): void {
  */
 export function backToBoard(scene: OrigScene, board: string, pos: number, dir: number): void {
   const s = scene.ctx.s;
-  const a = app();
-  if (a?.showCurrent) {
-    const c = s.chars[s.currentCharacter];
-    c.screen = board;
-    c.position = pos;
-    c.direction = dir;
-    a.persist?.();
-    a.showCurrent();
-  } else scene.gotoBoard(board, pos, dir);
+  const c = s.chars[s.currentCharacter];
+  c.screen = board;
+  c.position = pos;
+  c.direction = dir;
+  scene.ctx.jumpToCurrent();
 }
 
 /** show another AS movie without setCharacterScreen (Hotspot Witzomat: gTargetMovie only) */
 export function showMovie(scene: OrigScene, id: string): void {
-  const a = app();
-  if (a?.renderScene) {
-    a.renderScene(id);
-  } else scene.goto(id);
+  scene.ctx.showScene(id);
 }
 
 /**
@@ -145,47 +125,16 @@ export function gameInterface(scene: OrigScene, opts: { prefId: string; onStart:
     } else opts.onBack();
   }));
 
-  // ---- Inventar Game Preference (sprite 101, key OS101)
+  // ---- Inventar Game Preference (sprite 101, key OS101): generic slot of the scene view
   const PREF = 101;
-  const prefState = () => scene.state.get(`OS${PREF}`) ?? 'passiv';
-  const checkPrefs = () => !scene.sprite(PREF).member || prefState() !== 'passiv';
   const syncPref = () => {
     if (mode !== 'intro') return;
-    if (scene.stage.has(PREF)) scene.sprite(PREF).blend = prefState() === 'passiv' ? 50 : 100;
-    setButton(checkPrefs() ? 'Game-Start' : 'Game-Back');
+    const want = scene.checkPrefs() ? 'Game-Start' : 'Game-Back';
+    if (sp.member?.name !== want) setButton(want);
   };
-  if (scene.stage.has(PREF)) {
-    scene.sprite(PREF).cursor = 'take';
-    // the slot is a 70x70 field: transparent pixels of thin items (hook) must hit too
-    const r = scene.sprite(PREF).rect();
-    scene.stage.onBackground = (_e, pt) => {
-      if (mode === 'intro' && pt.x >= r.left && pt.x < r.right && pt.y >= r.top && pt.y < r.bottom) prefClick();
-    };
-    offs.push(() => (scene.stage.onBackground = null));
-    offs.push(scene.on(PREF, 'mouseUp', () => prefClick()));
-  }
-  function prefClick() {
-    {
-      if (scene.busy || mode !== 'intro') return;
-      const hand = scene.hand;
-      if (hand) {
-        if (hand === opts.prefId && prefState() === 'passiv') {
-          // item dropped into the slot: consumed, stays there
-          scene.consumeHand();
-          scene.state.set(`OS${PREF}`, 'activ');
-          inventarSound(hand);
-        } else returnHand();
-      } else if (prefState() === 'activ') {
-        // take it out again (original: into the hand; here straight back into the pocket)
-        if (scene.ctx.give(opts.prefId)) {
-          scene.state.set(`OS${PREF}`, 'passiv');
-          inventarSound(opts.prefId);
-        }
-      }
-      showInventar();
-      syncPref();
-    }
-  }
+  if (scene.stage.has(PREF)) offs.push(scene.prefSlot(PREF, opts.prefId, { enabled: () => mode === 'intro', onChange: syncPref }));
+  // a returned item (#returnToSource) changes the slot without a click
+  offs.push(scene.onTick(syncPref));
   syncPref();
   scene.sync();
   return {

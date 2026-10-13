@@ -14,9 +14,6 @@ const sym = (v: string | undefined) => (v ?? '').toLowerCase();
 const random = (n: number) => 1 + Math.floor(Math.random() * n);
 const randomRange = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
 
-function refresh(scene: OrigScene) {
-  if (scene.alive) scene.ctx.gotoScene(scene.id);
-}
 function every(scene: OrigScene, ms: number, fn: (now: number) => void) {
   let acc = 0;
   return scene.onTick((now, dt) => {
@@ -67,38 +64,10 @@ function gameScreen(scene: OrigScene, back: string, game: (ctl: GameCtl) => void
   const prefs = [101, 102, 103, 104, 105, 106, 107].filter((ch) => scene.stage.has(ch));
   const prefState = (ch: number) => sym(scene.state.get(`OS${ch}`) ?? 'activ');
   const checkPrefs = () => prefs.every((ch) => prefState(ch) !== 'passiv');
-  const showPrefs = () => {
-    for (const ch of prefs) {
-      const sp = scene.sprite(ch);
-      sp.blend = prefState(ch) === 'activ' ? 100 : 50;
-      sp.cursor = prefState(ch) === 'activ' ? 'take' : 'make';
-    }
-  };
-  showPrefs();
   for (const ch of prefs) {
+    // Inventar Game Preference: drop pId -> activ, click an active slot -> item back into the hand
     const pId = String(scene.sprite(ch).behavior('Inventar Game Preference')?.params.pId ?? '');
-    scene.on(ch, 'mouseUp', () => {
-      if (scene.busy || onGame) return;
-      if (scene.hand) {
-        if (prefState(ch) === 'passiv' && scene.hand === pId) {
-          scene.state.set(`OS${ch}`, 'activ');
-          scene.consumeHand(); // #stayHere: the item stays in the slot
-          void scene.sound(`${pId}-Sound`, 100);
-          showPrefs();
-          refresh(scene);
-        }
-        return;
-      }
-      if (prefState(ch) !== 'activ') return;
-      // original: takes the item back into the hand. [Prüfung erforderlich: Hand statt Hosentasche]
-      if (!scene.ctx.give(pId)) {
-        scene.say('Meine Hosentasche ist voll!');
-        return;
-      }
-      scene.state.set(`OS${ch}`, 'passiv');
-      showPrefs();
-      refresh(scene);
-    });
+    scene.prefSlot(ch, pId, { enabled: () => !onGame });
   }
   place(checkPrefs() ? 'Game-Start' : 'Game-Back');
   btn.cursor = 'make';

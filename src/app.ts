@@ -8,12 +8,12 @@ import {
 import { makeRng } from './game/rng';
 import type { CharId, GameEvent, GameState } from './game/types';
 import { NPCS } from './game/types';
-import { getScene, defaultClick, defaultUse, isVisible, objState, type SceneCtx, type SceneDef, type SceneObject } from './scenes/engine';
+import { getScene, defaultClick, defaultUse, isDropSpot, isVisible, objState, type HandSource, type SceneCtx, type SceneDef, type SceneObject } from './scenes/engine';
 import { hasOriginalGfx } from './orig/gfx';
 import { hasOriginals } from './orig/assets';
 import { hasSmacker, playSmacker } from './orig/media';
 import { applyMovieAudio } from './orig/movieAudio';
-import { mountOrigScene, type OrigScene } from './orig/sceneView';
+import { hasOrigPort, mountOrigScene, type OrigScene } from './orig/sceneView';
 import { chapterScreen, introScreen, menuButtonTalk, menuGreeting, setChapterHandler, stopMenuVoice } from './orig/screens';
 import { playVoice, setVolumes, unlock as unlockOrigAudio } from './orig/sound';
 import { loadTranscripts, setSubtitles, talk } from './orig/voice';
@@ -30,6 +30,19 @@ import { CHAPTER_TEXT, sceneTitle } from './scenes/meta';
 
 type View = 'menu' | 'game';
 
+/**
+ * Source of the item in the hand (sprite 110 mySourceSprite) = where #returnToSource puts it back.
+ * `screen` on scene-bound sources: leaving that scene returns the item first.
+ */
+type HandFrom =
+  | { kind: 'slot'; index: number; ch: CharId }
+  | { kind: 'joke' }
+  | { kind: 'coin' }
+  | { kind: 'scene'; screen: string; key: string; value: string; links: { screen: string; key: string }[] }
+  | { kind: 'fn'; screen: string; back: (item: string) => void }
+  | { kind: 'pocket' }
+  | { kind: 'lost' };
+
 export class App {
   private root: HTMLElement;
   game: GameState | null = null;
@@ -39,7 +52,12 @@ export class App {
   private targets: string[] = [];
   private busy = false;
   private hand: string | null = null;
-  private handFrom: { kind: 'slot'; index: number } | { kind: 'joke' } | { kind: 'coin' } | null = null;
+  private handFrom: HandFrom | null = null;
+  /** increments with every new hand item (detects "the drop target kept it / took something else") */
+  private handSeq = 0;
+  /** sprite 110: the held item follows the pointer (touch: shown above the finger) */
+  private handEl: HTMLElement;
+  private ptr = { x: -1, y: -1, touch: false };
   private boardView: BoardView;
   private stageEl!: HTMLElement;
   private hudEl!: HTMLElement;
@@ -62,6 +80,25 @@ export class App {
     });
     this.moodTip = h('div', { class: 'mood-tip', 'aria-hidden': 'true' });
     document.body.append(this.moodTip);
+    this.handEl = h('div', { class: 'hand-sprite', 'aria-hidden': 'true' });
+    document.body.append(this.handEl);
+    const track = (e: PointerEvent) => {
+      this.ptr = { x: e.clientX, y: e.clientY, touch: e.pointerType !== 'mouse' };
+      this.placeHandEl();
+    };
+    window.addEventListener('pointermove', track, { capture: true, passive: true });
+    window.addEventListener('pointerdown', track, { capture: true, passive: true });
+    // an item already in the hand can also be dragged to its target
+    window.addEventListener('pointerdown', (e) => {
+      if (this.hand && this.game && !(e.target as Element | null)?.closest?.('.overlay, .hud .hand')) this.startDrag(e, null);
+    }, true);
+    // clicks that end a drag must not also count as a tap
+    window.addEventListener('click', (e) => {
+      if (e.isTrusted && performance.now() < this.noClickUntil) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
     document.addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('pointerdown', unlockAudio, { once: true });
     // original sounds (optional): unlock on every gesture (iOS), greet once audio runs
@@ -92,6 +129,9 @@ export class App {
   showMenu() {
     this.game && this.persist();
     this.destroyOrig();
+    this.hand = null;
+    this.handFrom = null;
+    this.placeHandEl();
     this.mode = 'board';
     const auto = loadAutosave();
     const fileInput = h('input', { type: 'file', accept: '.json,application/json,text/plain', class: 'visually-hidden', id: 'load-file' }) as HTMLInputElement;
@@ -302,6 +342,7 @@ export class App {
   private showCurrent() {
     const c = this.g.chars[this.g.currentCharacter];
     if (isBoard(c.screen)) {
+      this.leaveScene(null);
       this.viewBoard = c.screen;
       this.targets = currentTargets(this.g);
       this.renderBoard();
@@ -314,7 +355,13 @@ export class App {
 
   persist() {
     if (!this.game) return;
-    const ok = autosave(this.game, { view: this.mode === 'scene' ? this.g.chars[this.g.currentCharacter].screen : 'board', settings: this.settings });
+    // an item in the hand is saved where it would return to (the hand itself is not saved)
+    let game = this.game;
+    if (this.hand && this.handFrom) {
+      game = structuredClone(this.game);
+      this.applyReturn(game, this.hand, this.handFrom.kind === 'fn' ? { kind: 'pocket' } : this.handFrom);
+    }
+    const ok = autosave(game, { view: this.mode === 'scene' ? this.g.chars[this.g.currentCharacter].screen : 'board', settings: this.settings });
     if (!ok) toast('Automatisches Speichern ist in diesem Browser nicht möglich – bitte Spielstand herunterladen.', 'bad', 4000);
   }
 
@@ -329,6 +376,7 @@ export class App {
   }
 
   private download() {
+    this.returnHand(false);
     this.persist();
     downloadSave(this.g, { view: 'board', settings: this.settings });
     toast(`Spielstand als „${SAVE_FILENAME}“ heruntergeladen.`, 'good');
@@ -381,12 +429,10 @@ export class App {
     const slots = inv.map((it, i) =>
       h('button', {
         class: `slot${it === 'OI000' ? ' empty' : ''}${this.handFrom?.kind === 'slot' && this.handFrom.index === i ? ' lifted' : ''}`,
+        'data-slot': String(i),
         'aria-label': it === 'OI000' ? `Tasche ${i + 1}: leer` : `Tasche ${i + 1}: ${itemName(it)}`,
         title: it === 'OI000' ? 'leer' : itemName(it),
-        onclick: () => {
-          if (this.suppressClick) return;
-          this.onSlot(i);
-        },
+        onclick: () => this.onSlot(i),
         onpointerdown: (e: Event) => {
           if (it !== 'OI000' && !this.hand) this.startDrag(e as PointerEvent, () => this.onSlot(i));
         },
@@ -396,9 +442,9 @@ export class App {
       h('div', { class: 'hud-group switches' }, switchBtn('CH1'), switchBtn('CH2')),
       h('div', { class: 'hud-group pocket', role: 'group', 'aria-label': 'Hosentasche' }, ...slots),
       h('div', { class: 'hud-group piles' },
-        h('button', { class: 'pile coins', title: 'Münzen – antippen, um eine Münze in die Hand zu nehmen', 'aria-label': `${me.coins} Münzen`, onclick: () => { if (!this.suppressClick) this.takeCoin(); }, onpointerdown: (e: Event) => { if (!this.hand) this.startDrag(e as PointerEvent, () => this.takeCoin()); } },
+        h('button', { class: 'pile coins', title: 'Münzen – antippen, um eine Münze in die Hand zu nehmen', 'aria-label': `${g.chars[pc].coins} Münzen`, onclick: () => this.onCoinPile(), onpointerdown: (e: Event) => { if (!this.hand) this.startDrag(e as PointerEvent, () => this.takeCoin()); } },
           fromSVG(itemSVG('OI007')), h('b', {}, String(g.chars[pc].coins))),
-        h('button', { class: 'pile jokes', title: 'Witze – antippen, um eine Witzkarte zu ziehen', 'aria-label': `${g.chars[pc].jokes} Witze`, onclick: () => { if (!this.suppressClick) this.takeJoke(); }, onpointerdown: (e: Event) => { if (!this.hand) this.startDrag(e as PointerEvent, () => this.takeJoke()); } },
+        h('button', { class: 'pile jokes', title: 'Witze – antippen, um eine Witzkarte zu ziehen', 'aria-label': `${g.chars[pc].jokes} Witze`, onclick: () => this.onJokePile(), onpointerdown: (e: Event) => { if (!this.hand) this.startDrag(e as PointerEvent, () => this.takeJoke()); } },
           fromSVG(itemSVG('OI006')), h('b', {}, String(g.chars[pc].jokes)))),
       onBoard
         ? h('div', { class: 'hud-group dice' },
@@ -416,6 +462,8 @@ export class App {
         : []),
     );
     this.orig?.sync();
+    this.placeHandEl();
+    this.placeHandChip();
   }
 
   private switchPlayer(ch: CharId) {
@@ -434,88 +482,124 @@ export class App {
 
   // ---------------------------------------------------------------- hand / items
 
+  /**
+   * Inventar im Inventar (pocket slot): without a hand item the slot's item goes into the hand;
+   * with one: empty slot -> #stayHere (coins / joke cards are no pocket items), own source slot ->
+   * back, occupied slot -> #aboutToReturn (back to its source).
+   */
   private onSlot(i: number) {
     const pc = playerChar(this.g);
     const inv = this.g.chars[pc].inventory;
     if (this.hand) {
-      // drop into an empty slot / back to source
-      if (this.handFrom?.kind === 'slot' && this.handFrom.index === i) return this.returnHand();
-      if (inv[i] !== 'OI000') return this.returnHand();
-      if (this.hand === 'OI006' || this.hand === 'OI007') return this.returnHand();
-      inv[i] = this.hand;
-      this.clearHand();
+      const it = this.hand;
+      if (inv[i] !== 'OI000' || it === 'OI006' || it === 'OI007') return this.returnHand();
+      inv[i] = it;
+      this.stayHere();
       return;
     }
     if (inv[i] === 'OI000') return;
-    sfx.item(inv[i]);
-    this.hand = inv[i];
-    this.handFrom = { kind: 'slot', index: i };
+    const it = inv[i];
     inv[i] = 'OI000';
-    this.renderHud();
+    this.setHand(it, { kind: 'slot', index: i, ch: pc });
   }
 
-  private suppressClick = false;
+  /** Münzen: take one into the hand; a coin in the hand goes back onto the pile */
+  private onCoinPile() {
+    if (this.hand === 'OI007') {
+      this.g.chars[playerChar(this.g)].coins++;
+      return this.stayHere();
+    }
+    if (this.hand) return this.returnHand();
+    this.takeCoin();
+  }
+
+  /** Witze (Witzkarte im Inventar / Drop Jokes): take a card; a card in the hand is added (addJokes(1)) */
+  private onJokePile() {
+    if (this.hand === 'OI006') {
+      this.g.chars[playerChar(this.g)].jokes++;
+      return this.stayHere();
+    }
+    if (this.hand) return this.returnHand();
+    this.takeJoke();
+  }
+
+  /** clicks of the same gesture that ended a drag are swallowed until then */
+  private noClickUntil = 0;
 
   /**
-   * Drag & drop like the original (item follows the pointer, release over the target).
-   * Tapping still works: tap item, then tap target.
+   * Drag & drop: the press starts a drag once the pointer moved 10 px; `take()` then puts the item
+   * into the hand, it follows the pointer (sprite 110) and the release is delivered to the target
+   * under it (dropAt). A plain tap is a click (tap item, then tap the target – like the original,
+   * where the item stays in the hand until the next click).
    */
-  private startDrag(e: PointerEvent, take: () => void) {
-    if (this.busy || e.button !== 0) return;
-    const x0 = e.clientX, y0 = e.clientY;
-    let ghost: HTMLElement | null = null;
+  private startDrag(e: PointerEvent, take: (() => void) | null) {
+    // take = null: an item already in the hand is carried (press, move, release over the target)
+    if (this.busy || e.button !== 0 || (take ? !!this.hand : !this.hand)) return;
+    const x0 = e.clientX, y0 = e.clientY, id = e.pointerId;
+    let started = false;
     const move = (ev: PointerEvent) => {
-      if (!ghost) {
+      if (ev.pointerId !== id) return;
+      if (!started) {
         if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 10) return;
-        take();
+        started = true;
+        take?.();
         if (!this.hand) return cleanup();
-        ghost = h('div', { class: 'drag-ghost' }, fromSVG(itemSVG(this.hand)));
-        document.body.append(ghost);
       }
       ev.preventDefault();
-      ghost.style.left = `${ev.clientX}px`;
-      ghost.style.top = `${ev.clientY}px`;
     };
     const up = (ev: PointerEvent) => {
-      const dragged = !!ghost;
+      if (ev.pointerId !== id) return;
       cleanup();
-      if (!dragged) return;
-      this.suppressClick = true;
-      setTimeout(() => (this.suppressClick = false), 50);
-      this.dropAt(ev.clientX, ev.clientY);
+      if (!started || !this.hand) return;
+      // the release belongs to the drop only (no stage mouseUp, no click)
+      ev.stopPropagation();
+      this.noClickUntil = performance.now() + 400;
+      this.dropAt(ev);
+    };
+    const cancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== id) return;
+      cleanup();
+      if (started) this.returnHand();
     };
     const cleanup = () => {
-      ghost?.remove();
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', up, true);
+      window.removeEventListener('pointercancel', cancel, true);
     };
-    const cancel = () => {
-      cleanup();
-      this.returnHand();
-    };
-    window.addEventListener('pointermove', move, { passive: false });
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', cancel);
+    window.addEventListener('pointermove', move, { capture: true, passive: false });
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', cancel, true);
   }
 
-  /** Deliver the held item to whatever is under the given screen point (like a tap there). */
-  private dropAt(x: number, y: number) {
-    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  /**
+   * Deliver the held item to whatever is under the release point (mouseUp there). Nothing took it
+   * -> #returnToSource (it flies back).
+   */
+  private dropAt(ev: PointerEvent) {
     const held = this.hand;
-    if (!el || !held) return this.returnHand();
-    const slot = el.closest('button.slot, button.pile, button.switch') as HTMLElement | null;
-    if (slot) {
-      slot.click();
-    } else {
+    const seq = this.handSeq;
+    if (!held) return;
+    const { clientX: x, clientY: y } = ev;
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const slot = el?.closest('button.slot') as HTMLElement | null;
+    if (slot) this.onSlot(+slot.dataset.slot!);
+    else if (el?.closest('button.pile.coins')) this.onCoinPile();
+    else if (el?.closest('button.pile.jokes')) this.onJokePile();
+    else if (el?.closest('.hud, .topbar')) this.returnHand();
+    else if (this.orig && this.orig.releaseAt(ev)) {
+      /* delivered to the original scene */
+    } else if (el?.closest('svg.scene [data-idx]')) {
+      el.closest('svg.scene [data-idx]')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+    } else if (el) {
+      // board (points / figures): like a tap there
       const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, pointerId: 1, isPrimary: true, pointerType: 'mouse' };
       el.dispatchEvent(new PointerEvent('pointerdown', opts));
       el.dispatchEvent(new PointerEvent('pointerup', opts));
       el.dispatchEvent(new MouseEvent('click', { ...opts, detail: 1 }));
     }
-    // nothing accepted it: back to where it came from (#returnToSource)
+    // nothing accepted it (ports may react asynchronously): back to where it came from
     setTimeout(() => {
-      if (this.hand === held) this.returnHand();
+      if (this.hand === held && this.handSeq === seq) this.returnHand();
     }, 0);
   }
 
@@ -524,10 +608,8 @@ export class App {
     const pc = playerChar(this.g);
     if (this.g.chars[pc].coins < 1) return toast('Keine Münzen mehr.', 'bad');
     this.g.chars[pc].coins--;
-    this.hand = 'OI007';
-    this.handFrom = { kind: 'coin' };
     sfx.coin();
-    this.renderHud();
+    this.setHand('OI007', { kind: 'coin' });
   }
 
   private takeJoke() {
@@ -535,30 +617,176 @@ export class App {
     const pc = playerChar(this.g);
     if (this.g.chars[pc].jokes < 1) return toast('Du hast keine Witze. Lauf über Witzfelder oder besuche den Witzomaten!', 'info', 3500);
     this.g.chars[pc].jokes--;
-    this.hand = 'OI006';
-    this.handFrom = { kind: 'joke' };
     sfx.click();
+    this.setHand('OI006', { kind: 'joke' });
+    if (this.mode === 'board') toast('Lege die Witzkarte auf ein blaues Feld.', 'info');
+  }
+
+  /** #inHand: sprite(110).member = item, mySourceSprite = from (a held item goes back first) */
+  private setHand(item: string, from: HandFrom) {
+    if (this.hand) this.returnHand(false);
+    this.hand = item;
+    this.handFrom = from;
+    this.handSeq++;
     this.renderHud();
-    toast('Lege die Witzkarte auf ein blaues Feld.', 'info');
   }
 
-  returnHand() {
-    if (!this.hand || !this.handFrom) return;
-    const pc = playerChar(this.g);
-    if (this.handFrom.kind === 'slot') {
-      const inv = this.g.chars[pc].inventory;
-      if (inv[this.handFrom.index] === 'OI000') inv[this.handFrom.index] = this.hand;
-      else giveItem(this.g, pc, this.hand);
-    } else if (this.handFrom.kind === 'coin') this.g.chars[pc].coins++;
-    else if (this.handFrom.kind === 'joke') this.g.chars[pc].jokes++;
-    this.clearHand();
+  /** put the returned item into a game state (#returnToSource); false = no place for it */
+  private applyReturn(g: GameState, item: string, from: HandFrom): boolean {
+    const pc = playerChar(g);
+    switch (from.kind) {
+      case 'slot': {
+        const inv = g.chars[from.ch].inventory;
+        if (inv[from.index] === 'OI000') inv[from.index] = item;
+        else if (!giveItem(g, from.ch, item) && !giveItem(g, pc, item)) return false;
+        return true;
+      }
+      case 'coin':
+        g.chars[pc].coins++;
+        return true;
+      case 'joke':
+        g.chars[pc].jokes++;
+        return true;
+      case 'scene':
+        for (const t of [{ screen: from.screen, key: from.key }, ...from.links]) (g.sceneState[t.screen] ??= {})[t.key] = from.value;
+        return true;
+      case 'fn':
+        from.back(item);
+        return true;
+      case 'pocket':
+        if (item === 'OI007') g.chars[pc].coins++;
+        else if (item === 'OI006') g.chars[pc].jokes++;
+        else return giveItem(g, pc, item);
+        return true;
+      case 'lost':
+        return true;
+    }
   }
 
-  private clearHand() {
+  /**
+   * #aboutToReturn / #returnToSource: the held item goes back to its source (inventarSound), with
+   * the original "fly back" from the pointer to the source when `fly`.
+   */
+  returnHand(fly = true) {
+    if (!this.hand || !this.handFrom || !this.game) return;
+    const item = this.hand, from = this.handFrom;
+    const target = fly ? this.sourceRect(from) : null;
+    if (!this.applyReturn(this.g, item, from)) {
+      toast('Die Hosentasche ist voll.', 'bad');
+      return;
+    }
     this.hand = null;
     this.handFrom = null;
+    sfx.item(item);
+    if (target) this.flyBack(item, target);
+    this.afterHandChange();
+  }
+
+  /** #stayHere: the held item stays at the target / is used up (inventarSound) */
+  private stayHere() {
+    const item = this.hand;
+    if (!item) return;
+    this.hand = null;
+    this.handFrom = null;
+    sfx.item(item);
+    this.afterHandChange();
+  }
+
+  /** give the held item to a character (Character Visibility / Character im Schauplatz) */
+  giveHandTo(ch: CharId): boolean {
+    const g = this.g;
+    const item = this.hand;
+    if (!item) return false;
+    const pc = playerChar(g);
+    // coins / joke cards cannot be given away; only to a figure on the same screen
+    if (item === 'OI006' || item === 'OI007' || g.chars[ch].screen !== g.chars[pc].screen || !giveItem(g, ch, item)) {
+      this.returnHand();
+      return false;
+    }
+    if (ch !== pc) toast(`${itemName(item)} an ${LOOKS[ch].name} gegeben.`, 'info');
+    this.stayHere();
+    return true;
+  }
+
+  private afterHandChange() {
     this.renderHud();
+    if (this.mode === 'scene' && !this.orig) {
+      const id = this.g.chars[playerChar(this.g)].screen;
+      if (getScene(id)) this.renderScene(id);
+    }
     this.persist();
+  }
+
+  /** scene-bound hand items return to their scene when it is left */
+  private leaveScene(next: string | null) {
+    const f = this.handFrom;
+    if (this.hand && f && (f.kind === 'scene' || f.kind === 'fn') && f.screen !== next) this.returnHand(false);
+  }
+
+  /** where the source of the held item is on screen (fly-back target) */
+  private sourceRect(from: HandFrom): DOMRect | null {
+    const q = (sel: string) => (this.hudEl?.isConnected ? this.hudEl.querySelector(sel)?.getBoundingClientRect() ?? null : null);
+    switch (from.kind) {
+      case 'slot':
+        return q(`button.slot[data-slot="${from.index}"]`);
+      case 'coin':
+        return q('button.pile.coins');
+      case 'joke':
+        return q('button.pile.jokes');
+      case 'scene': {
+        const r = this.orig?.alive && this.orig.id === from.screen ? this.orig.sourceRect(from.key) : null;
+        if (r) return r;
+        const el = this.stageEl?.querySelector(`svg.scene [data-key="${from.key}"]`);
+        return el ? el.getBoundingClientRect() : null;
+      }
+      case 'pocket':
+        return q('.pocket');
+      default:
+        return null;
+    }
+  }
+
+  /** the original "fly back": the item glides from the pointer to its source */
+  private flyBack(item: string, to: DOMRect) {
+    if (this.ptr.x < 0 || !to.width) return;
+    const ghost = h('div', { class: 'hand-sprite fly' }, fromSVG(itemSVG(item)));
+    ghost.style.left = `${this.ptr.x}px`;
+    ghost.style.top = `${this.ptr.y}px`;
+    document.body.append(ghost);
+    const dx = to.left + to.width / 2 - this.ptr.x, dy = to.top + to.height / 2 - this.ptr.y;
+    const dist = Math.hypot(dx, dy);
+    if (typeof ghost.animate !== 'function' || dist < 8) return ghost.remove();
+    const a = ghost.animate([{ translate: '0 0' }, { translate: `${dx}px ${dy}px` }], { duration: Math.min(450, 120 + dist / 3), easing: 'ease-in' });
+    a.onfinish = a.oncancel = () => ghost.remove();
+  }
+
+  /** sprite 110 follows the pointer (mouse) / sits above the finger (touch) */
+  private placeHandChip() {
+    // hand chip in the HUD: fixed just above the HUD (not in the landscape side-column layout)
+    const chip = this.hudEl?.querySelector<HTMLElement>(':scope > .hand');
+    if (chip && !matchMedia('(orientation: landscape) and (max-height: 520px)').matches) {
+      const r = this.hudEl.getBoundingClientRect();
+      chip.style.top = `${Math.max(4, r.top - 56)}px`;
+      chip.style.left = `${r.left + r.width / 2}px`;
+    }
+  }
+
+  private placeHandEl() {
+    const el = this.handEl;
+    const it = this.hand;
+    if (!it || !this.game || this.ptr.x < 0) {
+      el.classList.remove('show');
+      el.dataset.item = '';
+      return;
+    }
+    if (el.dataset.item !== it) {
+      el.replaceChildren(fromSVG(itemSVG(it)));
+      el.dataset.item = it;
+    }
+    el.classList.add('show');
+    el.classList.toggle('touch', this.ptr.touch);
+    el.style.left = `${this.ptr.x}px`;
+    el.style.top = `${this.ptr.y}px`;
   }
 
   // ---------------------------------------------------------------- board
@@ -751,14 +979,9 @@ export class App {
     if (this.busy) return;
     const pc = playerChar(g);
     if (this.hand) {
-      // dropping an item on a character gives it away (not coins / joke cards)
-      if (this.hand === 'OI006' || this.hand === 'OI007' || ch === pc) return this.returnHand();
-      const same = g.chars[ch].screen === g.chars[pc].screen;
-      if (same && giveItem(g, ch, this.hand)) {
-        sfx.give();
-        toast(`${itemName(this.hand)} an ${LOOKS[ch].name} gegeben.`, 'info');
-        this.clearHand();
-      } else this.returnHand();
+      // Character im Schauplatz.mouseUp: give the item if the figure has a free place and stands on
+      // the same screen (not coins / joke cards); otherwise it returns to its source
+      this.giveHandTo(ch);
       return;
     }
     if (!NPCS.includes(ch)) return;
@@ -807,11 +1030,36 @@ export class App {
       get hand() {
         return self.hand;
       },
-      consumeHand: () => {
-        self.hand = null;
-        self.handFrom = null;
+      consumeHand: () => self.stayHere(),
+      putInHand: (item, source?: HandSource) => {
+        const screen = source && typeof source === 'object' ? source.screen ?? def.id : def.id;
+        const from: HandFrom =
+          source === undefined || source === 'pocket' ? { kind: 'pocket' }
+          : source === 'lost' ? { kind: 'lost' }
+          : typeof source === 'function' ? { kind: 'fn', screen: def.id, back: source }
+          : { kind: 'scene', screen, key: source.key, value: source.value ?? 'activ', links: source.links ?? [] };
+        self.setHand(item, from);
       },
-      give: (item) => giveItem(g, playerChar(g), item),
+      returnHand: () => self.returnHand(),
+      giveHandTo: (ch) => self.giveHandTo(ch),
+      give: (item) => {
+        const ok = giveItem(g, playerChar(g), item);
+        self.scheduleRefresh();
+        return ok;
+      },
+      refresh: () => {
+        self.renderHud();
+        self.persist();
+      },
+      jumpToCurrent: () => {
+        self.persist();
+        self.showCurrent();
+      },
+      showScene: (id) => {
+        self.renderScene(id);
+        self.renderTop();
+        self.renderHud();
+      },
       ch: playerChar(g),
       gotoScene: (id) => {
         g.chars[playerChar(g)].screen = id;
@@ -842,9 +1090,28 @@ export class App {
       say: (t) => self.say(t),
       story: (title, text) => self.storyCard(title, text),
       rerender: () => self.renderScene(def.id),
-      addCoins: (n) => { g.chars[playerChar(g)].coins += n; },
-      addJokes: (n) => { g.chars[playerChar(g)].jokes += n; },
+      addCoins: (n) => {
+        g.chars[playerChar(g)].coins += n;
+        self.scheduleRefresh();
+      },
+      addJokes: (n) => {
+        g.chars[playerChar(g)].jokes += n;
+        self.scheduleRefresh();
+      },
     };
+  }
+
+  private refreshQueued = false;
+  /** showInventar() after scene logic changed coins / jokes / pocket (batched per task) */
+  private scheduleRefresh() {
+    if (this.refreshQueued) return;
+    this.refreshQueued = true;
+    queueMicrotask(() => {
+      this.refreshQueued = false;
+      if (!this.game || !this.hudEl?.isConnected) return;
+      this.renderHud();
+      this.persist();
+    });
   }
 
   say(text: string) {
@@ -856,19 +1123,14 @@ export class App {
     if (this.busy) return;
     if (this.hand) {
       const item = this.hand;
+      const seq = this.handSeq;
       const accepted = defaultUse(ctx, def, o, item);
-      if (accepted) {
-        // inventarSound on #stayHere (original sound, else synth)
-        if (hasOriginals()) sfx.item(item);
-        else sfx.give();
-        this.hand = null;
-        this.handFrom = null;
-      } else if (this.hand) this.returnHand();
+      const same = this.hand === item && this.handSeq === seq;
+      // accepted = #stayHere (inventarSound), otherwise #aboutToReturn
+      if (same) accepted ? this.stayHere() : this.returnHand();
     } else {
-      const before = o.kind === 'item' ? objState(ctx, o) : undefined;
       defaultClick(ctx, def, o);
-      if (o.kind === 'item' && o.item && before !== objState(ctx, o)) sfx.item(o.item); // picked up
-      else if (!hasOriginals()) sfx.click();
+      if (!hasOriginals() && !this.hand) sfx.click();
     }
     this.persist();
     if (this.mode === 'scene' && this.g.chars[playerChar(this.g)].screen === def.id) this.renderScene(def.id);
@@ -882,6 +1144,7 @@ export class App {
   }
 
   renderScene(id: string) {
+    this.leaveScene(id);
     this.mode = 'scene';
     const def = getScene(id);
     if (!def) {
@@ -898,8 +1161,15 @@ export class App {
       this.destroyOrig();
       const token = this.sceneToken;
       const ctx = this.sceneCtx(def);
-      const note = def.reconstructed ? null : h('div', { class: 'scene-note' }, '[Prüfung erforderlich] ', def.note ?? 'Diese Szene ist noch nicht vollständig rekonstruiert.');
+      // scenes with a registered original port count as ported
+      const note = def.reconstructed || hasOrigPort(id) ? null : h('div', { class: 'scene-note' }, '[Prüfung erforderlich] ', def.note ?? 'Diese Szene ist noch nicht vollständig rekonstruiert.');
       const wrap = h('div', { class: 'scene-wrap orig' }, note);
+      // a press on something that goes into the hand (item, box place, filled slot) can be dragged
+      wrap.addEventListener('pointerdown', (e) => {
+        const sc = this.orig;
+        if (this.hand || !sc || sc.el.parentElement !== wrap || !sc.pickableAt(e.clientX, e.clientY)) return;
+        this.startDrag(e, () => sc.clickAt(e));
+      }, true);
       this.stageEl.replaceChildren(wrap);
       void mountOrigScene(wrap, {
         def, ctx,
@@ -927,27 +1197,40 @@ export class App {
   private renderSceneSvg(def: SceneDef) {
     this.destroyOrig();
     const ctx = this.sceneCtx(def);
-    const objs = def.objects.filter((o) => isVisible(ctx, def, o));
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 800 448');
     svg.setAttribute('class', 'scene');
     let markup = def.backdrop(ctx);
-    for (const o of objs) {
+    def.objects.forEach((o, idx) => {
+      if (!isVisible(ctx, def, o)) {
+        // passiv item place: invisible, but the held item can be put back there
+        if (this.hand && isDropSpot(ctx, def, o)) {
+          markup += `<g class="obj obj-spot hot" data-key="${o.key}" data-idx="${idx}"><rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" class="hit spot"/><title>${escapeAttr(o.label)}</title></g>`;
+        }
+        return;
+      }
       const st = objState(ctx, o);
       const art = o.draw ? o.draw(ctx, st) : defaultObjectArt(o, st);
       const interactive = o.kind !== 'deco' || !!o.onClick;
-      markup += `<g class="obj obj-${o.kind}${interactive ? ' hot' : ''}" data-key="${o.key}" ${interactive ? `role="button" tabindex="0" aria-label="${escapeAttr(o.label)}"` : ''}>${art}${interactive ? `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" class="hit"/>` : ''}<title>${escapeAttr(o.label)}</title></g>`;
-    }
+      const pick = o.kind === 'item' && st === 'activ';
+      markup += `<g class="obj obj-${o.kind}${interactive ? ' hot' : ''}" data-key="${o.key}" data-idx="${idx}"${pick ? ' data-pick="1"' : ''} ${interactive ? `role="button" tabindex="0" aria-label="${escapeAttr(o.label)}"` : ''}>${art}${interactive ? `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" class="hit"/>` : ''}<title>${escapeAttr(o.label)}</title></g>`;
+    });
     if (def.overlay) markup += `<g class="scene-overlay" pointer-events="none">${def.overlay(ctx)}</g>`;
     svg.innerHTML = markup;
+    const objOf = (el: Element | null) => {
+      const g = el?.closest('[data-idx]') as SVGGElement | null;
+      return g ? def.objects[+g.dataset.idx!] : undefined;
+    };
     const activate = (el: Element | null) => {
-      const g = el?.closest('[data-key]') as SVGGElement | null;
-      if (!g || this.busy) return;
-      const o = def.objects.find((x) => x.key === g.dataset.key);
-      if (!o) return;
+      const o = objOf(el);
+      if (!o || this.busy) return;
       this.activateObject(def, ctx, o);
     };
+    svg.addEventListener('pointerdown', (e) => {
+      const g = (e.target as Element).closest('[data-pick]');
+      if (g && !this.hand) this.startDrag(e, () => activate(g));
+    });
     svg.addEventListener('click', (e) => activate(e.target as Element));
     svg.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {

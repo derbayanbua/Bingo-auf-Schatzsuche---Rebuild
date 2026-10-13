@@ -1,7 +1,15 @@
 /* drag & drop of pocket items */
 .slot, .pile { touch-action: none; }
-.drag-ghost { position: fixed; z-index: 80; width: 64px; height: 64px; transform: translate(-50%, -60%); pointer-events: none; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .4)); }
-.drag-ghost > * { width: 100%; height: 100%; }
+/* sprite 110 "Inventar in der Hand": the held item follows the mouse (touch: above the finger) */
+.hand-sprite { position: fixed; z-index: 80; width: 64px; height: 64px; transform: translate(-50%, -50%); pointer-events: none; display: none; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .4)); }
+.hand-sprite.show, .hand-sprite.fly { display: block; }
+.hand-sprite.touch { transform: translate(-50%, -115%); }
+.hand-sprite > * { width: 100%; height: 100%; }
+/* scenes: no browser panning, so a finger can drag items (pointercancel otherwise) */
+.scene-wrap svg.scene, .scene-wrap .ostage { touch-action: none; }
+/* the stage's layers (box view, a11y buttons, subtitles) stay below the hand sprite / HUD */
+.ostage { isolation: isolate; }
+svg.scene .obj-spot .hit.spot { fill: transparent; stroke: rgba(255, 255, 255, .55); stroke-dasharray: 6 5; }
 
 :root {
   --night: #1b1446;
@@ -201,7 +209,8 @@ svg.board.orig.over-obstacle { cursor: pointer; }
 .shaker.pass { background: linear-gradient(#b8b3d9, #7d77a8); box-shadow: 0 4px 0 #4d4877; }
 .shaker:active { transform: translateY(3px); box-shadow: 0 1px 0 #8f1f57; }
 .shaker[disabled] { opacity: .5; }
-.hand { position: absolute; left: 50%; top: -54px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: #fff; color: var(--ink); padding: 6px 8px 6px 6px; border-radius: 16px; box-shadow: var(--shadow); white-space: nowrap; font-weight: 700; }
+/* hand chip: fixed above the HUD (the HUD scrolls/clips); top/left are set in App.placeHandEl() */
+.hand { position: fixed; z-index: 70; left: 50%; top: auto; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: #fff; color: var(--ink); padding: 6px 8px 6px 6px; border-radius: 16px; box-shadow: var(--shadow); white-space: nowrap; font-weight: 700; }
 .hand .item { width: 36px; height: 36px; }
 
 /* ---------------------------------------------------------------- exchange */

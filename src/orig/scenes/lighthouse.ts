@@ -4,9 +4,8 @@
 // Web conventions used here (no shared API changes):
 // * Lingo `blend = 0` sprites still receive clicks; the web stage does not hit-test blend 0, so such
 //   sprites are shown with blend 1 ("ghost") where the original relies on clicks through them.
-// * Items the original puts into the hand (sprite 110) go into the pocket (ctx.give) – the scene API
-//   has no "put into hand" call. [Prüfung erforderlich: Hand statt Hosentasche]
-// * refresh() re-renders scene + HUD after hand/pocket changes (gotoScene of the same scene = sync).
+// * Items the original puts into the hand (sprite 110) use scene.putInHand(item, source).
+// * The box of AS005-03 (Box + frame "Box") is the generic Box behaviour of the scene view.
 
 import { registerOrigScene, type OrigScene } from '../sceneView';
 import type { Sprite } from '../stage';
@@ -15,9 +14,6 @@ const sym = (v: string | undefined) => (v ?? '').toLowerCase();
 const random = (n: number) => 1 + Math.floor(Math.random() * n); // Lingo random(n)
 const randomRange = (a: number, b: number) => a + Math.floor(Math.random() * (b - a + 1));
 
-function refresh(scene: OrigScene) {
-  if (scene.alive) scene.ctx.gotoScene(scene.id);
-}
 function ghost(sp: Sprite, visible: boolean) {
   sp.blend = visible ? 100 : 1;
 }
@@ -179,43 +175,14 @@ registerOrigScene('AS005-03', (scene) => {
     for (const f of offs) f();
     offs = [];
   };
-  let boxMode: 'stopped' | 'openBox' | 'closeBox' = 'stopped';
-  let bindHebel: (() => void) | null = null;
-
   function setupScreen() {
     clear();
     // Codeschloss: open lock picture only when LOCK = opened (sprite stays the GS005-02 hotspot)
     ghost(scene.sprite(11), sym(st.get('LOCK') ?? 'closed') === 'opened');
-    if (bindHebel) bindHebel();
-    else bindHebel = hebel(scene, 12, 'OH2', { screen: 'AS005-05', key: 'OH1' }, { fwd: 'Trapdoor-1', back: 'Trapdoor-2' });
+    hebel(scene, 12, 'OH2', { screen: 'AS005-05', key: 'OH1' }, { fwd: 'Trapdoor-1', back: 'Trapdoor-2' });
     scene.off(13); // Luke: pRemote = not clickable
     scene.sprite(15).blend = sym(st.get('LEADER')) === 'activ' ? 100 : 0; // Leiter (display only)
-    // Box (pId OI016)
-    const box = scene.sprite(14);
-    scene.off(14);
-    box.cursor = 'look';
-    if (sym(st.get('BOX0')) === 'state2') {
-      box.setMember('Box-6');
-      boxMode = 'closeBox';
-      void scene.sound('Box-Close', 100);
-    }
-    offs.push(scene.on(14, 'mouseUp', () => {
-      if (scene.busy || boxMode !== 'stopped') return;
-      const bst = sym(st.get('BOX0') ?? 'blocked');
-      if (scene.hand) {
-        if (scene.hand === 'OI016' && bst === 'blocked') {
-          void scene.sound('Box-Crack', 100);
-          st.set('BOX0', 'state1');
-        }
-        return; // original: the item stays in the hand
-      }
-      if (bst === 'blocked') {
-        void scene.sound('Box-Blocked', 100);
-        return;
-      }
-      boxMode = 'openBox';
-      void scene.sound('Box-Open', 100);
-    }));
+    // Box (sprite 14, pId OI016) + box view (frame "Box"): generic Box behaviour of the scene view
     // Power (exit to AS005-02): Arnold waits in the pub once the Riegel was taken out of the box.
     // [Prüfung erforderlich] original compares the symbol readData(...)=#OI014 with the string "OI014";
     // ported as the evident intent (BOX1 no longer holds OI014). Done on mouseDown so it is saved with the exit.
@@ -229,75 +196,6 @@ registerOrigScene('AS005-03', (scene) => {
     }));
     scene.sync();
   }
-
-  function setupBox() {
-    clear();
-    for (let ch = 11; ch <= 32; ch++) scene.off(ch);
-    for (let i = 1; i <= 8; i++) {
-      const itemCh = 9 + 2 * i;
-      const key = `BOX${i}`;
-      const show = () => {
-        const it = st.get(key) ?? 'OI000';
-        const sp = scene.sprite(itemCh);
-        if (it !== 'OI000') {
-          sp.setMember(it);
-          sp.blend = 100;
-        } else sp.blend = 0;
-        scene.sprite(itemCh).cursor = it !== 'OI000' ? 'take' : 'make';
-        scene.sprite(itemCh + 1).cursor = it !== 'OI000' ? 'take' : 'make';
-      };
-      show();
-      const click = () => {
-        if (scene.busy) return;
-        const it = st.get(key) ?? 'OI000';
-        if (scene.hand) {
-          if (it !== 'OI000') return; // #aboutToReturn
-          st.set(key, scene.hand);
-          scene.consumeHand();
-          show();
-          refresh(scene);
-          return;
-        }
-        if (it === 'OI000') return;
-        if (!scene.ctx.give(it)) {
-          scene.say('Meine Hosentasche ist voll!');
-          return;
-        }
-        void scene.sound(`${it}-Sound`, 100);
-        st.set(key, 'OI000');
-        show();
-        refresh(scene);
-      };
-      offs.push(scene.on(itemCh, 'mouseUp', click), scene.on(itemCh + 1, 'mouseUp', click));
-    }
-    for (const ch of [31, 32]) {
-      scene.sprite(ch).cursor = 'walk';
-      offs.push(scene.on(ch, 'mouseUp', () => {
-        if (scene.busy || scene.hand) return;
-        void scene.gotoFrame('Screen').then(() => scene.alive && setupScreen());
-      }));
-    }
-  }
-
-  every(scene, 40, () => {
-    if (boxMode === 'stopped' || scene.frame !== 1) return;
-    const sp = scene.sprite(14);
-    let [, f] = memberNum(sp);
-    if (boxMode === 'openBox') {
-      if (f < 6) sp.setMember(`Box-${++f}`);
-      else {
-        boxMode = 'stopped';
-        st.set('BOX0', 'state2');
-        void scene.gotoFrame('Box').then(() => scene.alive && setupBox());
-      }
-    } else if (boxMode === 'closeBox') {
-      if (f > 1) sp.setMember(`Box-${--f}`);
-      else {
-        boxMode = 'stopped';
-        st.set('BOX0', 'state1');
-      }
-    }
-  });
 
   setupScreen();
 });
@@ -378,27 +276,31 @@ registerOrigScene('AS005-05', (scene) => {
     st.set('LEADER', v, 'AS005-03');
     st.set('HS1', v); // sprite(41).myState (Hotspot-AS -> AS005-03)
   };
-  scene.on(27, 'mouseDown', () => {
+  // mouseDown (activ): Hand = OI015, source 27, state passiv (+ sprite 41 passiv)
+  const takeLeiter = () => {
     if (scene.busy || scene.hand || lstate() !== 'activ') return;
-    if (!scene.ctx.give('OI015')) {
-      scene.say('Meine Hosentasche ist voll!');
-      return;
-    }
-    void scene.sound('OI015-Sound', 100);
     saveLeiter('passiv');
     showLeiter();
-    refresh(scene);
-  });
+    scene.putInHand('OI015', () => {
+      // #returnToSource: sendSprite(27, #mouseUp) -> the ladder stands in the hatch again
+      saveLeiter('activ');
+      if (scene.alive) showLeiter();
+    });
+    scene.sync();
+  };
+  // mouseUp (hand OI015, passiv, hatch not state1): state activ, #stayHere
   scene.on(27, 'mouseUp', () => {
-    if (scene.busy || !scene.hand || lstate() === 'activ') return;
+    if (scene.busy) return;
+    if (!scene.hand) return takeLeiter();
+    if (lstate() === 'activ') return;
     if ((st.get('OH1') ?? 'state1') === 'state1') return; // hatch closed
     if (scene.hand !== 'OI015') return;
     saveLeiter('activ');
-    scene.consumeHand();
-    void scene.sound('OI015-Sound', 100);
+    scene.consumeHand(); // #stayHere (inventarSound)
     showLeiter();
-    refresh(scene);
+    scene.sync();
   });
+  scene.onTick(() => (leiter.props.pickup = lstate() === 'activ' && !scene.hand));
 
   // Rohr (sprite 30): falls down once GS005-03 unscrewed it
   const rohr = scene.sprite(30);
@@ -497,9 +399,8 @@ registerOrigScene('AS005-07', (scene) => {
       const r = scene.sprite(ch).rect();
       if (pt.x >= r.left && pt.x < r.right && pt.y >= r.top && pt.y < r.bottom) {
         st.set(`OS${ch}`, 'activ');
-        scene.consumeHand();
-        void scene.sound('OI018-Sound', 100);
-        refresh(scene);
+        scene.consumeHand(); // #stayHere (inventarSound)
+        scene.sync();
         return;
       }
     }
