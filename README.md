@@ -6,8 +6,8 @@ auf Windows, macOS, Android und iOS, ohne Shockwave, Flash oder Emulator.
 
 > **Status: Development Build.** Das Spiel ist in Arbeit. Es kann Fehler enthalten, Spielstände können zwischen Versionen ungültig werden.
 
-▶ **Im Browser spielen:** https://derbayanbua.github.io/Bingo-auf-Schatzsuche---Rebuild/
-(öffentliche Version mit neu gezeichneten Ersatzgrafiken, ohne Originalmedien – siehe unten)
+▶ **Im Browser spielen:** über die GitHub-Pages-Seite dieses Repositories (Link oben rechts unter „About“ / „Deployments“).
+Öffentliche Version mit neu gezeichneten Ersatzgrafiken, ohne Originalmedien – siehe unten.
 
 ---
 
