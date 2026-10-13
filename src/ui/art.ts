@@ -13,16 +13,17 @@ export interface CharLook {
   hat?: 'pirate' | 'cook' | 'cap' | 'captain';
 }
 
-/** Names proven by the original scripts: CH4 Alfred, CH7 Arnold, CH9 Rocco. Others [Prüfung erforderlich]. */
+/** Names proven by the original Landscape scores (pCharacterID of the "Character im Schauplatz" sprites 51-59:
+ *  CH3 JmpReeling, CH4 JmpAlfred, CH5 JmpMagnus, CH6 JmpBen, CH7 JmpArnold, CH8 JmpTim, CH9 JmpRocco). */
 export const LOOKS: Record<CharId, CharLook> = {
   CH1: { name: 'Bingo', body: '#f7c531', accent: '#3aa845', shape: 'block' },
   CH2: { name: 'Puck', body: '#f9d648', accent: '#2f73d8', shape: 'ball' },
-  CH3: { name: 'Figur 3', body: '#9b7fd1', accent: '#5b3fa0', shape: 'round' },
+  CH3: { name: 'Reeling', body: '#9b7fd1', accent: '#5b3fa0', shape: 'round' },
   CH4: { name: 'Alfred', body: '#f2f2f2', accent: '#d9534f', shape: 'round', hat: 'cook' },
-  CH5: { name: 'Figur 5', body: '#58b7c9', accent: '#1d6f82', shape: 'round', hat: 'cap' },
-  CH6: { name: 'Figur 6', body: '#e88fb4', accent: '#a2346a', shape: 'round' },
+  CH5: { name: 'Magnus', body: '#58b7c9', accent: '#1d6f82', shape: 'round', hat: 'cap' },
+  CH6: { name: 'Ben', body: '#e88fb4', accent: '#a2346a', shape: 'round' },
   CH7: { name: 'Arnold', body: '#e8964a', accent: '#8a4a12', shape: 'round' },
-  CH8: { name: 'Figur 8', body: '#8fcf6b', accent: '#3d7d22', shape: 'round', hat: 'captain' },
+  CH8: { name: 'Tim', body: '#8fcf6b', accent: '#3d7d22', shape: 'round', hat: 'captain' },
   CH9: { name: 'Rocco', body: '#5b5f6b', accent: '#c0392b', shape: 'round', hat: 'pirate' },
 };
 

@@ -1,14 +1,21 @@
 // SVG board renderer: procedural terrain + roads generated from the original point graph,
-// point markers, character tokens and jump animations.
+// point markers, character tokens and jump animations. With the original graphics installed
+// (public/orig) the board is drawn like the original Landscape movie instead (src/orig/boardOrig.ts).
+//
+// Coordinates: the original point data uses stage coordinates (board area = y 45..493 of the 800x600
+// stage), so the SVG viewBox is "0 45 800 448" and all points are drawn at their original x/y.
 
 import { BOARDS, getPoint, pointId, splitPoint } from '../game/data';
 import { checkPointTyp, pointState } from '../game/logic';
 import type { CharId, GameState } from '../game/types';
 import { ALL_CHARS } from '../game/types';
+import { OBSTACLE_POINTS, OrigBoardDecor, hasOrigBoard, moodMember, origBackground, origHop, origPoint, origToken, preloadBoardMembers, setImage } from '../orig/boardOrig';
 import { LOOKS, tokenSVG } from './art';
 
 export const BOARD_W = 800;
 export const BOARD_H = 448;
+/** stage y of the board's top edge */
+export const BOARD_Y = 45;
 const NS = 'http://www.w3.org/2000/svg';
 
 const GROUND = {
@@ -33,6 +40,11 @@ function islandOf(board: string): 1 | 2 {
   return parseInt(board.slice(2), 10) >= 31 ? 2 : 1;
 }
 
+/** Off-board position one field (75 px) beyond a point in direction d (0..3) – Character im Schauplatz. */
+function beyond(x: number, y: number, d: number, k = 1): [number, number] {
+  return [x + [0, 75, 0, -75][d] * k, y + [-75, 0, 75, 0][d] * k];
+}
+
 interface Seg { x1: number; y1: number; x2: number; y2: number; g: number }
 
 function segments(board: string): Seg[] {
@@ -46,7 +58,7 @@ function segments(board: string): Seg[] {
         const q = getPoint(nb)!;
         if (nb > pointId(board, p.n)) segs.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, g: p.g });
       } else {
-        const [ex, ey] = [[p.x, -30], [BOARD_W + 30, p.y], [p.x, BOARD_H + 30], [-30, p.y]][d];
+        const [ex, ey] = beyond(p.x, p.y, d);
         segs.push({ x1: p.x, y1: p.y, x2: ex, y2: ey, g: p.g });
       }
     });
@@ -65,7 +77,7 @@ function decorations(board: string, segs: Seg[]): string {
   const island = islandOf(board);
   let out = '';
   for (let i = 0; i < 70; i++) {
-    const x = rnd() * BOARD_W, y = rnd() * BOARD_H;
+    const x = rnd() * BOARD_W, y = BOARD_Y + rnd() * BOARD_H;
     if (segs.some((s) => distToSeg(x, y, s) < 46)) continue;
     const k = rnd();
     if (island === 1) {
@@ -107,8 +119,8 @@ export function boardBackground(board: string): string {
     .filter((s) => s.g === 1)
     .map((s) => `<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="#b7b1a5" stroke-width="30" stroke-dasharray="7 9" stroke-linecap="butt" opacity=".55"/>`)
     .join('');
-  const svg = `<defs>${bg}</defs><rect width="${BOARD_W}" height="${BOARD_H}" fill="url(#bg-${board})"/>
-    <g opacity=".25">${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${(hash(board + i)() * 800).toFixed(0)}" cy="${(hash(board + 'y' + i)() * 448).toFixed(0)}" rx="160" ry="90" fill="${island === 1 ? '#a9df7a' : '#f5e3b2'}"/>`).join('')}</g>
+  const svg = `<defs>${bg}</defs><rect y="${BOARD_Y}" width="${BOARD_W}" height="${BOARD_H}" fill="url(#bg-${board})"/>
+    <g opacity=".25">${Array.from({ length: 6 }, (_, i) => `<ellipse cx="${(hash(board + i)() * 800).toFixed(0)}" cy="${(BOARD_Y + hash(board + 'y' + i)() * 448).toFixed(0)}" rx="160" ry="90" fill="${island === 1 ? '#a9df7a' : '#f5e3b2'}"/>`).join('')}</g>
     ${decorations(board, segs)}<g>${roadEdge}</g><g>${roadFill}</g><g>${stones}</g>`;
   staticCache.set(board, svg);
   return svg;
@@ -118,6 +130,8 @@ export interface BoardHandlers {
   onPoint(id: string): void;
   onCharacter(ch: CharId): void;
   onHoverCharacter?(ch: CharId | null, x: number, y: number): void;
+  /** Obstacles (Schranke/Felsen): click on the gate of point n */
+  onObstacle?(board: string, n: number): void;
 }
 
 export class BoardView {
@@ -125,51 +139,106 @@ export class BoardView {
   private layerBg: SVGGElement;
   private layerPts: SVGGElement;
   private layerChars: SVGGElement;
+  private layerDecor: SVGGElement;
+  private layerTop: SVGGElement;
   private tokens = new Map<CharId, SVGGElement>();
+  private decor: OrigBoardDecor | null = null;
+  private moodTimer = 0;
+  private state: GameState | null = null;
+  /** true while the board is drawn with the original Landscape graphics */
+  orig = false;
   board = '';
   targets: string[] = [];
 
   constructor(private handlers: BoardHandlers) {
     this.svg = document.createElementNS(NS, 'svg');
-    this.svg.setAttribute('viewBox', `0 0 ${BOARD_W} ${BOARD_H}`);
+    this.svg.setAttribute('viewBox', `0 ${BOARD_Y} ${BOARD_W} ${BOARD_H}`);
     this.svg.setAttribute('class', 'board');
     this.svg.setAttribute('role', 'application');
     this.svg.setAttribute('aria-label', 'Spielfeld');
-    this.layerBg = document.createElementNS(NS, 'g');
-    this.layerPts = document.createElementNS(NS, 'g');
-    this.layerChars = document.createElementNS(NS, 'g');
-    this.svg.append(this.layerBg, this.layerPts, this.layerChars);
+    const layer = () => document.createElementNS(NS, 'g');
+    this.layerBg = layer();
+    this.layerPts = layer();
+    this.layerChars = layer();
+    this.layerDecor = layer();
+    this.layerDecor.setAttribute('class', 'odecor-layer');
+    this.layerTop = layer();
+    this.layerTop.setAttribute('class', 'otop-layer');
+    this.svg.append(this.layerBg, this.layerPts, this.layerChars, this.layerDecor, this.layerTop);
     this.svg.addEventListener('click', (e) => {
-      const el = (e.target as Element).closest('[data-pt],[data-ch]') as HTMLElement | null;
+      // obstacle sprites lie above points and figures (channels 61/62); hit test by alpha like matte ink
+      const obs = this.decor && this.decor.hitObstacle(...this.toBoard(e));
+      if (obs) return this.handlers.onObstacle?.(this.board, obs);
+      const el = (e.target as Element).closest('[data-obs],[data-pt],[data-ch]') as HTMLElement | null;
       if (!el) return;
-      if (el.dataset.ch) this.handlers.onCharacter(el.dataset.ch as CharId);
+      if (el.dataset.obs) this.handlers.onObstacle?.(this.board, Number(el.dataset.obs));
+      else if (el.dataset.ch) this.handlers.onCharacter(el.dataset.ch as CharId);
       else if (el.dataset.pt) this.handlers.onPoint(el.dataset.pt);
+    });
+    this.svg.addEventListener('pointermove', (e) => {
+      if (this.decor && e.pointerType === 'mouse') this.svg.classList.toggle('over-obstacle', !!this.decor.hitObstacle(...this.toBoard(e)));
     });
     this.svg.addEventListener('pointerover', (e) => {
       const el = (e.target as Element).closest('[data-ch]') as HTMLElement | null;
-      if (el && this.handlers.onHoverCharacter) {
+      if (!el) return;
+      if (this.orig) return this.moodLater(el.dataset.ch as CharId);
+      if (this.handlers.onHoverCharacter) {
         const r = el.getBoundingClientRect();
         this.handlers.onHoverCharacter(el.dataset.ch as CharId, r.left + r.width / 2, r.top);
       }
     });
     this.svg.addEventListener('pointerout', (e) => {
       const el = (e.target as Element).closest('[data-ch]');
-      if (el && this.handlers.onHoverCharacter) this.handlers.onHoverCharacter(null, 0, 0);
+      if (!el) return;
+      if (this.orig) return this.moodHide();
+      if (this.handlers.onHoverCharacter) this.handlers.onHoverCharacter(null, 0, 0);
     });
   }
 
   show(s: GameState, board: string, targets: string[]) {
-    if (board !== this.board) {
+    this.state = s;
+    const orig = hasOrigBoard(board);
+    if (board !== this.board || orig !== this.orig) {
       this.board = board;
-      this.layerBg.innerHTML = boardBackground(board);
+      this.orig = orig;
+      this.svg.classList.toggle('orig', orig);
+      this.decor?.destroy();
+      this.decor = null;
+      this.moodHide();
+      for (const g of this.tokens.values()) g.remove();
+      this.tokens.clear();
+      if (orig) {
+        preloadBoardMembers();
+        this.layerBg.innerHTML = origBackground(board);
+        this.decor = new OrigBoardDecor(board, this.layerDecor, (b, n) => this.handlers.onObstacle?.(b, n));
+        void this.decor.load((n) => this.blocked(n));
+      } else {
+        this.layerBg.innerHTML = boardBackground(board);
+      }
+    } else {
+      this.decor?.resume();
     }
     this.targets = targets;
     this.renderPoints(s);
     this.renderChars(s);
   }
 
+  /** client position -> board (= original stage) coordinates */
+  private toBoard(e: { clientX: number; clientY: number }): [number, number] {
+    const m = this.svg.getScreenCTM();
+    if (!m) return [-1, -1];
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return [p.x, p.y];
+  }
+
+  private blocked(n: number): boolean {
+    return !!this.state && pointState(this.state, pointId(this.board, n)) === 'BLK';
+  }
+
   renderPoints(s: GameState) {
+    this.state = s;
     const tset = new Set(this.targets);
+    const obstacles = OBSTACLE_POINTS[this.board] ?? [];
     let html = '';
     for (const p of BOARDS[this.board]) {
       if (p.x === 0 && p.y === 0) continue;
@@ -178,28 +247,55 @@ export class BoardView {
       const typ = checkPointTyp(id);
       const isT = tset.has(id);
       let mark: string;
-      if (st === 'BLK') {
-        mark = `<rect x="-22" y="-7" width="44" height="14" rx="4" fill="#d33" stroke="#7a1010" stroke-width="2"/><path d="M-16 -7 l8 14 M0 -7 l8 14" stroke="#fff" stroke-width="4"/><circle cx="-22" r="5" fill="#555"/><circle cx="22" r="5" fill="#555"/>`;
-      } else if (typ !== 'standard') {
-        mark = `<circle r="17" fill="#e8483f" stroke="#fff" stroke-width="3"/><path d="M0 -9 l3 6 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1z" fill="#ffe27a"/>`;
-      } else if (st === 'JOK') {
-        mark = `<circle r="15" fill="#3d7ee0" stroke="#fff" stroke-width="3"/><text y="6" text-anchor="middle" font-size="16">😄</text>`;
+      let gate = '';
+      if (this.orig) {
+        // a blocked point is covered by its obstacle sprite (decor layer); the point itself stays like the original
+        mark = origPoint(st, typ, isT);
       } else {
-        mark = `<circle r="11" fill="#3d7ee0" stroke="#fff" stroke-width="3"/>`;
+        if (st === 'BLK') {
+          mark = `<rect x="-22" y="-7" width="44" height="14" rx="4" fill="#d33" stroke="#7a1010" stroke-width="2"/><path d="M-16 -7 l8 14 M0 -7 l8 14" stroke="#fff" stroke-width="4"/><circle cx="-22" r="5" fill="#555"/><circle cx="22" r="5" fill="#555"/>`;
+        } else if (typ !== 'standard') {
+          mark = `<circle r="17" fill="#e8483f" stroke="#fff" stroke-width="3"/><path d="M0 -9 l3 6 7 1 -5 5 1 7 -6 -3 -6 3 1 -7 -5 -5 7 -1z" fill="#ffe27a"/>`;
+        } else if (st === 'JOK') {
+          mark = `<circle r="15" fill="#3d7ee0" stroke="#fff" stroke-width="3"/><text y="6" text-anchor="middle" font-size="16">😄</text>`;
+        } else {
+          mark = `<circle r="11" fill="#3d7ee0" stroke="#fff" stroke-width="3"/>`;
+        }
+        if (obstacles.includes(p.n)) {
+          // clickable gate post next to the point (Obstacles behaviour without the original sprites)
+          const closed = st === 'BLK';
+          gate = `<g class="gate" data-obs="${p.n}" transform="translate(${p.x + 30} ${p.y - 26})" role="button" tabindex="0" aria-label="Hindernis an Feld ${p.n} ${closed ? 'öffnen' : 'schließen'}">
+            <circle r="16" fill="transparent"/><circle r="11" fill="${closed ? '#d33' : '#7a7a7a'}" stroke="#fff" stroke-width="2"/><path d="${closed ? 'M-5 -5 l10 10 M5 -5 l-10 10' : 'M-5 0 h10'}" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g>`;
+        }
       }
-      const ring = isT ? `<circle r="22" class="target-ring"/>` : '';
+      const ring = isT && !this.orig ? `<circle r="22" class="target-ring"/>` : '';
       const label = typ !== 'standard' ? `${typ === 'game' ? 'Spiel' : 'Abenteuer'}feld` : st === 'JOK' ? 'Witzfeld' : 'Feld';
       html += `<g class="pt${isT ? ' is-target' : ''}" data-pt="${id}" transform="translate(${p.x} ${p.y})" role="button" aria-label="${label} ${p.n}${isT ? ' (erreichbar)' : ''}" tabindex="${isT ? 0 : -1}">
-        <circle r="30" fill="transparent"/>${ring}${mark}</g>`;
+        <circle r="30" fill="transparent"/>${ring}${mark}</g>${gate}`;
     }
     this.layerPts.innerHTML = html;
+    this.decor?.syncObstacles((n) => this.blocked(n));
   }
 
-  private pos(s: GameState, ch: CharId): { x: number; y: number; rot: number } | null {
+  private pos(s: GameState, ch: CharId): { x: number; y: number; rot: number; dir: number } | null {
     const c = s.chars[ch];
     if (c.screen !== this.board || c.position < 1) return null;
     const p = BOARDS[this.board][c.position - 1];
-    return { x: p.x, y: p.y, rot: ((c.direction || 1) - 1) * 90 };
+    return { x: p.x, y: p.y, rot: ((c.direction || 1) - 1) * 90, dir: c.direction || 1 };
+  }
+
+  private makeToken(ch: CharId): SVGGElement {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', `char char-${ch}`);
+    g.dataset.ch = ch;
+    g.setAttribute('role', 'button');
+    g.setAttribute('aria-label', LOOKS[ch].name);
+    g.innerHTML = this.orig ? origToken(ch) || `<g class="rot">${tokenSVG(ch)}</g>` : `<g class="rot">${tokenSVG(ch)}</g>`;
+    // Director channel order: CH1 (51) below … CH9 (59) on top
+    const after = [...this.tokens.entries()].filter(([c]) => c > ch).map(([, el]) => el).sort((a, b) => (a.dataset.ch! < b.dataset.ch! ? -1 : 1))[0];
+    this.layerChars.insertBefore(g, after ?? null);
+    this.tokens.set(ch, g);
+    return g;
   }
 
   renderChars(s: GameState) {
@@ -211,50 +307,48 @@ export class BoardView {
         this.tokens.delete(ch);
         continue;
       }
-      if (!g) {
-        g = document.createElementNS(NS, 'g');
-        g.setAttribute('class', `char char-${ch}`);
-        g.dataset.ch = ch;
-        g.setAttribute('role', 'button');
-        g.setAttribute('aria-label', LOOKS[ch].name);
-        g.innerHTML = `<g class="rot">${tokenSVG(ch)}</g>`;
-        this.layerChars.appendChild(g);
-        this.tokens.set(ch, g);
-      }
+      if (!g) g = this.makeToken(ch);
+      g.style.opacity = '';
       g.classList.toggle('current', ch === s.currentCharacter);
       g.setAttribute('transform', `translate(${p.x} ${p.y})`);
+      g.dataset.rot = String(p.rot);
+      g.dataset.dir = String(p.dir);
       (g.firstElementChild as SVGGElement).setAttribute('transform', `rotate(${p.rot})`);
     }
   }
 
   /** Animate a token along a path (board-local points only; off-board steps are skipped). */
   async animatePath(ch: CharId, path: string[], stepMs: number, onStep?: (id: string, i: number) => void): Promise<void> {
+    this.moodHide();
     let g = this.tokens.get(ch);
     if (!g) {
-      g = document.createElementNS(NS, 'g');
-      g.setAttribute('class', `char char-${ch}`);
-      g.dataset.ch = ch;
-      g.innerHTML = `<g class="rot">${tokenSVG(ch)}</g>`;
-      this.layerChars.appendChild(g);
-      this.tokens.set(ch, g);
+      g = this.makeToken(ch);
       g.style.opacity = '0';
     }
     const rot = g.firstElementChild as SVGGElement;
+    // original timing: one update every 30 ms (turbo: 5 ms -> limited by the browser)
+    const frameMs = stepMs >= 200 ? 30 : 8;
     for (let i = 1; i < path.length; i++) {
       const a = getPoint(path[i - 1])!, b = getPoint(path[i])!;
       const [ba] = splitPoint(path[i - 1]), [bb] = splitPoint(path[i]);
       const d = a.nb.indexOf(path[i]);
       if (ba !== this.board && bb !== this.board) continue;
-      // entering from another board: start just outside the edge (original: nextTrackPoint)
+      // entering from another board: start one field outside the edge (original: nextTrackPoint)
       let ax = a.x, ay = a.y;
-      if (ba !== this.board) {
-        [ax, ay] = [[b.x, BOARD_H + 40], [-50, b.y], [b.x, -40], [BOARD_W + 50, b.y]][d];
+      const enter = ba !== this.board;
+      if (enter) {
+        [ax, ay] = beyond(b.x, b.y, d, -1);
         g.style.opacity = '1';
       }
       let bx = b.x, by = b.y;
-      if (bb !== this.board) [bx, by] = [[a.x, -40], [BOARD_W + 50, a.y], [a.x, BOARD_H + 40], [-50, a.y]][d];
-      rot.setAttribute('transform', `rotate(${d * 90})`);
-      await hop(g, ax, ay, bx, by, stepMs);
+      if (bb !== this.board) [bx, by] = beyond(a.x, a.y, d);
+      if (this.orig && rot.querySelector('image.ochar')) {
+        await origHop(g, ch, ax, ay, d + 1, frameMs, enter);
+        g.setAttribute('transform', `translate(${bx} ${by})`);
+      } else {
+        rot.setAttribute('transform', `rotate(${d * 90})`);
+        await hop(g, ax, ay, bx, by, stepMs);
+      }
       onStep?.(path[i], i);
       if (bb !== this.board) g.style.opacity = '0';
     }
@@ -265,6 +359,34 @@ export class BoardView {
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+
+  // ---------------------------------------------------------------- mood bubble (sprite 75)
+
+  private moodLater(ch: CharId) {
+    clearTimeout(this.moodTimer);
+    this.moodTimer = window.setTimeout(() => {
+      const tok = this.tokens.get(ch);
+      const s = this.state;
+      if (!tok || !s || !tok.isConnected) return;
+      const m = moodMember(s.chars[ch].mood);
+      if (!m) return;
+      const p = this.pos(s, ch);
+      if (!p) return;
+      let img = this.layerTop.querySelector('image.omood') as SVGImageElement | null;
+      if (!img) {
+        img = document.createElementNS(NS, 'image') as SVGImageElement;
+        img.setAttribute('class', 'omood');
+        this.layerTop.appendChild(img);
+      }
+      setImage(img, m, p.x, p.y);
+      img.setAttribute('aria-label', `${LOOKS[ch].name}: Laune ${s.chars[ch].mood}`);
+    }, 1000);
+  }
+
+  private moodHide() {
+    clearTimeout(this.moodTimer);
+    this.layerTop.querySelector('image.omood')?.remove();
   }
 }
 

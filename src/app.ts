@@ -3,7 +3,7 @@
 import { BOARDS, PLAYABLE_BOARDS, createInitialState, getPoint, pointId, splitPoint } from './game/data';
 import {
   checkPointFree, checkPointTyp, characterContact, currentTargets, giveItem, isBoard, location, nextCharacter,
-  npcTurn, placeJokeCard, playerChar, playerMoveTo, rollDice,
+  npcTurn, placeJokeCard, playerChar, playerMoveTo, rollDice, toggleBlocker,
 } from './game/logic';
 import { makeRng } from './game/rng';
 import type { CharId, GameEvent, GameState } from './game/types';
@@ -58,6 +58,7 @@ export class App {
       onPoint: (id) => void this.onPoint(id),
       onCharacter: (ch) => void this.onCharacter(ch),
       onHoverCharacter: (ch, x, y) => this.showMood(ch, x, y),
+      onObstacle: (b, n) => this.onObstacle(b, n),
     });
     this.moodTip = h('div', { class: 'mood-tip', 'aria-hidden': 'true' });
     document.body.append(this.moodTip);
@@ -593,6 +594,22 @@ export class App {
     this.viewBoard = b;
     this.renderBoard();
     this.renderTop();
+  }
+
+  /** Obstacles (BS41): open a blocked gate / close an open one (only on a free point); new targets if rolled. */
+  private onObstacle(board: string, n: number) {
+    const g = this.g;
+    if (this.busy || this.hand) return;
+    const st = g.boardState[board]?.[n - 1];
+    if (st === undefined) return;
+    sfx.obstacle(st !== 'BLK', board); // open gate clicked: Blocker-1, blocked gate: Blocker-2
+    if (st !== 'BLK' && st !== '___') return; // occupied point: the original only plays the sound
+    toggleBlocker(g, board, n);
+    if (g.cubePoints && g.currentCharacter === playerChar(g)) this.targets = currentTargets(g);
+    const tgt = this.viewBoard === g.chars[g.currentCharacter].screen ? this.targets : this.targets.filter((t) => t.startsWith(this.viewBoard));
+    this.boardView.targets = tgt;
+    this.boardView.renderPoints(g);
+    this.persist();
   }
 
   private async onShaker() {
