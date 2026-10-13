@@ -1,0 +1,170 @@
+{
+ "AS001-02": [
+  {
+   "handling": 0,
+   "board": "SP001",
+   "pos": 13,
+   "dir": 1
+  }
+ ],
+ "AS004-01": [
+  {
+   "handling": 0,
+   "board": "SP004",
+   "pos": 2,
+   "dir": 1
+  }
+ ],
+ "AS005-02": [
+  {
+   "handling": 0,
+   "board": "SP005",
+   "pos": 1,
+   "dir": 2
+  }
+ ],
+ "AS006-01": [
+  {
+   "handling": 0,
+   "board": "SP006",
+   "pos": 1,
+   "dir": 3
+  }
+ ],
+ "AS009-01": [
+  {
+   "handling": 0,
+   "board": "SP009",
+   "pos": 1,
+   "dir": 3
+  }
+ ],
+ "AS011-01": [
+  {
+   "handling": 0,
+   "board": "SP011",
+   "pos": 10,
+   "dir": 2
+  }
+ ],
+ "AS012-01": [
+  {
+   "handling": 0,
+   "board": "SP012",
+   "pos": 10,
+   "dir": 1
+  }
+ ],
+ "AS019-01": [
+  {
+   "handling": 0,
+   "board": "SP019",
+   "pos": 7,
+   "dir": 2
+  }
+ ],
+ "AS031-01": [
+  {
+   "handling": 0,
+   "board": "SP031",
+   "pos": 2,
+   "dir": 2
+  }
+ ],
+ "AS032-01": [
+  {
+   "handling": 0,
+   "board": "SP032",
+   "pos": 2,
+   "dir": 2
+  }
+ ],
+ "AS033-01": [
+  {
+   "handling": 0,
+   "board": "SP033",
+   "pos": 1,
+   "dir": 2
+  }
+ ],
+ "AS035-01": [
+  {
+   "handling": 0,
+   "board": "SP035",
+   "pos": 1,
+   "dir": 3
+  }
+ ],
+ "AS038-01": [
+  {
+   "handling": 0,
+   "board": "SP038",
+   "pos": 15,
+   "dir": 3
+  }
+ ],
+ "AS038-02": [
+  {
+   "handling": 0,
+   "board": "SP038",
+   "pos": 7,
+   "dir": 1
+  }
+ ],
+ "AS039-01": [
+  {
+   "handling": 0,
+   "board": "SP039",
+   "pos": 4,
+   "dir": 2
+  }
+ ],
+ "AS040-01": [
+  {
+   "handling": 0,
+   "board": "SP040",
+   "pos": 1,
+   "dir": 2
+  }
+ ],
+ "AS042-01": [
+  {
+   "handling": 0,
+   "board": "SP042",
+   "pos": 1,
+   "dir": 2
+  }
+ ],
+ "AS044-01": [
+  {
+   "handling": 0,
+   "board": "SP044",
+   "pos": 1,
+   "dir": 3
+  }
+ ],
+ "AS045-01": [
+  {
+   "handling": 0,
+   "board": "SP038",
+   "pos": 18,
+   "dir": 4
+  }
+ ],
+ "AS045-02": [
+  {
+   "handling": 0,
+   "board": "SP038",
+   "pos": 18,
+   "dir": 4
+  }
+ ],
+ "AS048-01": [
+  {
+   "handling": 0,
+   "board": "SP048",
+   "pos": 8,
+   "dir": 4
+  }
+ ]
+}
