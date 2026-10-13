@@ -493,21 +493,43 @@ registerOrigScene('GS005-04', (scene) =>
       mState = 'off';
       rightHeld = true;
     };
+    // Original: the RIGHT mouse button takes a match and holds it while pressed.
+    // Remake: double-click / double-tap on the open box takes a match; it follows the pointer
+    // until the next press is released (works the same with mouse and touch).
+    let lastDown = 0;
+    let armed = false;
+    let pendingClose = 0;
     scene.on(15, 'mouseDown', (_sp, e) => {
-      if (scene.busy) return;
-      if (e.button === 2 || (e.pointerType === 'touch' && boxState === 'opened' && matches > 0)) return rightMouseDown();
+      if (scene.busy || rightHeld) return;
       if (e.button !== 0) return;
+      const now = performance.now();
+      if (now - lastDown < 400 && boxState === 'opened' && matches > 0) {
+        lastDown = 0;
+        clearTimeout(pendingClose);
+        armed = false;
+        return rightMouseDown();
+      }
+      lastDown = now;
       if (boxMode === 'stopped' && boxState === 'closed') {
         boxMode = 'forward';
         void scene.sound('Open', 80);
       } else if (boxMode === 'stopped' && boxState === 'opened') {
-        boxMode = 'backward';
-        void scene.sound('Close', 80);
+        // single click closes the box – delayed so that a double-click can take a match instead
+        pendingClose = window.setTimeout(() => {
+          if (boxMode === 'stopped' && boxState === 'opened' && !rightHeld) {
+            boxMode = 'backward';
+            void scene.sound('Close', 80);
+          }
+        }, 420);
       }
     });
-    const up = (e: PointerEvent) => {
-      if (e.button === 2 || e.pointerType === 'touch') rightHeld = false;
+    const downAny = () => {
+      if (rightHeld) armed = true;
     };
+    const up = () => {
+      if (rightHeld && armed) rightHeld = false;
+    };
+    window.addEventListener('pointerdown', downAny);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
 
@@ -640,6 +662,8 @@ registerOrigScene('GS005-04', (scene) =>
       stopLoop?.();
       scene.el.removeEventListener('contextmenu', ctx);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointerdown', downAny);
+      clearTimeout(pendingClose);
       window.removeEventListener('pointercancel', up);
     };
   }),
