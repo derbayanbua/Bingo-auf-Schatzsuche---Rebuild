@@ -108,6 +108,17 @@ h1 span { display: block; font-size: .62em; color: var(--coral); margin-top: .15
 svg.board, svg.scene { width: 100%; height: auto; max-height: 100%; aspect-ratio: 800 / 448; border-radius: 16px; box-shadow: var(--shadow); touch-action: manipulation; display: block; }
 @supports not (aspect-ratio: 1) { svg.board, svg.scene { height: 100%; } }
 .scene-note { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); background: rgba(255, 255, 255, .9); padding: 6px 12px; border-radius: 12px; font-size: .8rem; max-width: 90%; text-align: center; }
+/* original-graphics stage (src/orig/stage.ts) */
+.scene-wrap.orig { container-type: size; }
+.ostage { position: relative; width: min(100cqw, calc(100cqh * 800 / 448)); max-width: 100%; overflow: hidden; border-radius: 16px; box-shadow: var(--shadow); touch-action: manipulation; user-select: none; -webkit-user-select: none; background: #000; }
+.ostage-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.ostage .osp { position: absolute; display: block; max-width: none; pointer-events: none; -webkit-user-drag: none; }
+.ostage-svg { position: absolute; left: 0; top: 0; width: 800px; height: 448px; z-index: 200; pointer-events: none; overflow: visible; }
+.ostage-svg .obj.hot { pointer-events: auto; }
+.ostage-a11y { position: absolute; inset: 0; pointer-events: none; z-index: 300; }
+.ostage-btn { position: absolute; padding: 0; border: 0; background: transparent; pointer-events: none; opacity: 0; }
+.ostage-btn:focus-visible { opacity: 1; outline: 3px solid rgba(255, 220, 60, .95); border-radius: 10px; }
+.scene-wrap.orig .scene-note { z-index: 5; }
 .placeholder-card { background: var(--card); border-radius: 22px; padding: 22px; max-width: 420px; text-align: center; box-shadow: var(--shadow); }
 
 /* board items */

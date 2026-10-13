@@ -3,6 +3,7 @@
 // Puck = yellow ball with a blue shoe.
 
 import type { CharId } from '../game/types';
+import { itemImageUrl } from '../orig/gfx';
 
 export interface CharLook {
   name: string;
@@ -150,7 +151,10 @@ function iconFor(id: string): string {
 
 export function itemSVG(id: string): string {
   if (id === 'OI000') return '';
-  return `<svg viewBox="-32 -32 64 64" class="item" role="img" aria-label="${itemName(id)}"><title>${itemName(id)}</title>${iconFor(id)}</svg>`;
+  // original inventory icon (Shared_Inventar, 70x70) when public/orig is installed
+  const orig = itemImageUrl(id);
+  const body = orig ? `<image href="${orig}" x="-32" y="-32" width="64" height="64"/>` : iconFor(id);
+  return `<svg viewBox="-32 -32 64 64" class="item${orig ? ' item-orig' : ''}" role="img" aria-label="${itemName(id)}"><title>${itemName(id)}</title>${body}</svg>`;
 }
 
 /** Die face (1..6) */

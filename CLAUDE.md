@@ -99,6 +99,17 @@ Bekannte Abweichungen / Fehler:
 * Kisten (Box) zeigen nur einen Hinweis statt der Ablage.
 * Figurennamen CH3/5/6/8 unbekannt.
 
+## Original-Assets (optional, nur private Nutzung)
+
+Der Besitzer des Originals kann dessen Grafiken lokal einspielen. Sie liegen in `public/orig/` (gitignored, **nicht weitergeben/veröffentlichen**); ohne den Ordner läuft das Spiel unverändert mit eigener Vektorgrafik.
+
+* Grafik-Export: `python -P D:\Workspace_D\bingo\tools\export_graphics.py [--force] [Filter]` (benötigt `analysis/img` + `analysis/score`) →
+  `public/orig/gfx/<Dir>_<Movie>/<Member-Nr>.webp` (Transparenz aus Ink gebacken: matte = Weiß-Flutfüllung vom Rand, backgroundTransparent = alles Weiß),
+  `gfx/index.json` (`{dir:{member:[w,h,regX,regY,name]}}`), `gfx/score/<Dir>_<Movie>.json` (Laufzeit-Score: libs, labels, Frames mit Sprites `[ch,castLib,member,left,top,w,h,ink,blend,behaviors,name]`, Behavior-Parameter als JSON). ~50 MB.
+* Laufzeit: `src/orig/gfx.ts` (Index, `hasOriginalGfx()`, Item-Icons, Cursor), `src/orig/stage.ts` (Director-artige Sprite-Bühne: `loadMovie`, `Movie.member/frame/sequence`, `Stage.sprite(ch)`, Alpha-Hit-Test, `on(ch,'mouseUp',fn)`, `playSequence`, `onTick`),
+  `src/orig/sceneView.ts` (Original-Szenenansicht über der generischen Engine; szenenspezifische Ports per `registerOrigScene(id, scene => …)`). `app.ts` nutzt sie automatisch, wenn `public/orig/gfx/index.json` existiert.
+* Audio: `src/orig/assets.ts`, `src/orig/sound.ts` (separat).
+
 ## Spielstandformat (Version 1)
 
 ```json

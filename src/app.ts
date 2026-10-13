@@ -8,7 +8,9 @@ import {
 import { makeRng } from './game/rng';
 import type { CharId, GameEvent, GameState } from './game/types';
 import { NPCS } from './game/types';
-import { getScene, defaultClick, defaultUse, isVisible, objState, type SceneCtx, type SceneDef } from './scenes/engine';
+import { getScene, defaultClick, defaultUse, isVisible, objState, type SceneCtx, type SceneDef, type SceneObject } from './scenes/engine';
+import { hasOriginalGfx } from './orig/gfx';
+import { mountOrigScene, type OrigScene } from './orig/sceneView';
 import {
   DEFAULT_SETTINGS, SAVE_FILENAME, SaveError, autosave, downloadSave, loadAutosave, readSaveFile,
   type SaveFile, type Settings,
@@ -39,6 +41,10 @@ export class App {
   private overlayEl: HTMLElement | null = null;
   private mode: 'board' | 'scene' | 'exchange' = 'board';
   private moodTip: HTMLElement;
+  /** original-graphics scene view (when public/orig is installed) */
+  private orig: OrigScene | null = null;
+  private origCh: CharId | null = null;
+  private sceneToken = 0;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -61,6 +67,7 @@ export class App {
 
   showMenu() {
     this.game && this.persist();
+    this.destroyOrig();
     this.mode = 'board';
     const auto = loadAutosave();
     const fileInput = h('input', { type: 'file', accept: '.json,application/json,text/plain', class: 'visually-hidden', id: 'load-file' }) as HTMLInputElement;
@@ -191,6 +198,7 @@ export class App {
   // ================================================================ game screen
 
   private enterGame() {
+    this.destroyOrig();
     this.topEl = h('header', { class: 'topbar' });
     this.stageEl = h('div', { class: 'stage' });
     this.hudEl = h('footer', { class: 'hud' });
@@ -321,6 +329,7 @@ export class App {
             h('button', { class: 'btn btn-small', onclick: () => this.returnHand() }, 'Zurücklegen'))]
         : []),
     );
+    this.orig?.sync();
   }
 
   private switchPlayer(ch: CharId) {
@@ -404,6 +413,7 @@ export class App {
   // ---------------------------------------------------------------- board
 
   private renderBoard() {
+    this.destroyOrig();
     this.mode = 'board';
     const g = this.g;
     const tgt = this.viewBoard === g.chars[g.currentCharacter].screen ? this.targets : this.targets.filter((t) => t.startsWith(this.viewBoard));
@@ -581,6 +591,7 @@ export class App {
       return;
     }
     this.mode = 'exchange';
+    this.destroyOrig();
     sfx.click();
     this.stageEl.replaceChildren(openExchange(g, ch, () => {
       this.persist();
@@ -659,13 +670,77 @@ export class App {
     toast(`${LOOKS[playerChar(this.g)].name}: „${text}“`, 'info', 3200);
   }
 
+  /** default click / drop handling of an engine object, then re-render (shared by SVG + original view) */
+  private activateObject(def: SceneDef, ctx: SceneCtx, o: SceneObject) {
+    if (this.busy) return;
+    if (this.hand) {
+      const item = this.hand;
+      const accepted = defaultUse(ctx, def, o, item);
+      if (accepted) {
+        sfx.give();
+        this.hand = null;
+        this.handFrom = null;
+      } else if (this.hand) this.returnHand();
+    } else {
+      sfx.click();
+      defaultClick(ctx, def, o);
+    }
+    this.persist();
+    if (this.mode === 'scene' && this.g.chars[playerChar(this.g)].screen === def.id) this.renderScene(def.id);
+    this.renderHud();
+  }
+
+  private destroyOrig() {
+    this.sceneToken++;
+    this.orig?.destroy();
+    this.orig = null;
+  }
+
   renderScene(id: string) {
     this.mode = 'scene';
     const def = getScene(id);
     if (!def) {
+      this.destroyOrig();
       this.stageEl.replaceChildren(this.placeholderScene(id));
       return;
     }
+    if (hasOriginalGfx()) {
+      const pc = playerChar(this.g);
+      if (this.orig && this.orig.alive && this.orig.id === id && this.origCh === pc && this.orig.el.isConnected) {
+        this.orig.sync();
+        return;
+      }
+      this.destroyOrig();
+      const token = this.sceneToken;
+      const ctx = this.sceneCtx(def);
+      const note = def.reconstructed ? null : h('div', { class: 'scene-note' }, '[Prüfung erforderlich] ', def.note ?? 'Diese Szene ist noch nicht vollständig rekonstruiert.');
+      const wrap = h('div', { class: 'scene-wrap orig' }, note);
+      this.stageEl.replaceChildren(wrap);
+      void mountOrigScene(wrap, {
+        def, ctx,
+        activate: (o) => this.activateObject(def, ctx, o),
+        isBusy: () => this.busy,
+        persist: () => this.persist(),
+      }).then((sc) => {
+        if (token !== this.sceneToken || !wrap.isConnected) {
+          sc?.destroy();
+          return;
+        }
+        if (!sc) {
+          this.renderSceneSvg(def);
+          return;
+        }
+        this.orig = sc;
+        this.origCh = pc;
+        if (def.onEnter) void def.onEnter(ctx);
+      });
+      return;
+    }
+    this.renderSceneSvg(def);
+  }
+
+  private renderSceneSvg(def: SceneDef) {
+    this.destroyOrig();
     const ctx = this.sceneCtx(def);
     const objs = def.objects.filter((o) => isVisible(ctx, def, o));
     const NS = 'http://www.w3.org/2000/svg';
@@ -686,21 +761,7 @@ export class App {
       if (!g || this.busy) return;
       const o = def.objects.find((x) => x.key === g.dataset.key);
       if (!o) return;
-      if (this.hand) {
-        const item = this.hand;
-        const accepted = defaultUse(ctx, def, o, item);
-        if (accepted) {
-          sfx.give();
-          this.hand = null;
-          this.handFrom = null;
-        } else if (this.hand) this.returnHand();
-      } else {
-        sfx.click();
-        defaultClick(ctx, def, o);
-      }
-      this.persist();
-      if (this.mode === 'scene' && this.g.chars[playerChar(this.g)].screen === def.id) this.renderScene(def.id);
-      this.renderHud();
+      this.activateObject(def, ctx, o);
     };
     svg.addEventListener('click', (e) => activate(e.target as Element));
     svg.addEventListener('keydown', (e) => {
