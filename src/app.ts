@@ -382,16 +382,22 @@ export class App {
         class: `slot${it === 'OI000' ? ' empty' : ''}${this.handFrom?.kind === 'slot' && this.handFrom.index === i ? ' lifted' : ''}`,
         'aria-label': it === 'OI000' ? `Tasche ${i + 1}: leer` : `Tasche ${i + 1}: ${itemName(it)}`,
         title: it === 'OI000' ? 'leer' : itemName(it),
-        onclick: () => this.onSlot(i),
+        onclick: () => {
+          if (this.suppressClick) return;
+          this.onSlot(i);
+        },
+        onpointerdown: (e: Event) => {
+          if (it !== 'OI000' && !this.hand) this.startDrag(e as PointerEvent, () => this.onSlot(i));
+        },
       }, h('span', { class: 'slot-inner' }, ...(it === 'OI000' ? [] : [fromSVG(itemSVG(it))]))));
 
     this.hudEl.replaceChildren(
       h('div', { class: 'hud-group switches' }, switchBtn('CH1'), switchBtn('CH2')),
       h('div', { class: 'hud-group pocket', role: 'group', 'aria-label': 'Hosentasche' }, ...slots),
       h('div', { class: 'hud-group piles' },
-        h('button', { class: 'pile coins', title: 'Münzen – antippen, um eine Münze in die Hand zu nehmen', 'aria-label': `${me.coins} Münzen`, onclick: () => this.takeCoin() },
+        h('button', { class: 'pile coins', title: 'Münzen – antippen, um eine Münze in die Hand zu nehmen', 'aria-label': `${me.coins} Münzen`, onclick: () => { if (!this.suppressClick) this.takeCoin(); }, onpointerdown: (e: Event) => { if (!this.hand) this.startDrag(e as PointerEvent, () => this.takeCoin()); } },
           fromSVG(itemSVG('OI007')), h('b', {}, String(g.chars[pc].coins))),
-        h('button', { class: 'pile jokes', title: 'Witze – antippen, um eine Witzkarte zu ziehen', 'aria-label': `${g.chars[pc].jokes} Witze`, onclick: () => this.takeJoke() },
+        h('button', { class: 'pile jokes', title: 'Witze – antippen, um eine Witzkarte zu ziehen', 'aria-label': `${g.chars[pc].jokes} Witze`, onclick: () => { if (!this.suppressClick) this.takeJoke(); }, onpointerdown: (e: Event) => { if (!this.hand) this.startDrag(e as PointerEvent, () => this.takeJoke()); } },
           fromSVG(itemSVG('OI006')), h('b', {}, String(g.chars[pc].jokes)))),
       onBoard
         ? h('div', { class: 'hud-group dice' },
@@ -445,6 +451,71 @@ export class App {
     this.handFrom = { kind: 'slot', index: i };
     inv[i] = 'OI000';
     this.renderHud();
+  }
+
+  private suppressClick = false;
+
+  /**
+   * Drag & drop like the original (item follows the pointer, release over the target).
+   * Tapping still works: tap item, then tap target.
+   */
+  private startDrag(e: PointerEvent, take: () => void) {
+    if (this.busy || e.button !== 0) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    let ghost: HTMLElement | null = null;
+    const move = (ev: PointerEvent) => {
+      if (!ghost) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 10) return;
+        take();
+        if (!this.hand) return cleanup();
+        ghost = h('div', { class: 'drag-ghost' }, fromSVG(itemSVG(this.hand)));
+        document.body.append(ghost);
+      }
+      ev.preventDefault();
+      ghost.style.left = `${ev.clientX}px`;
+      ghost.style.top = `${ev.clientY}px`;
+    };
+    const up = (ev: PointerEvent) => {
+      const dragged = !!ghost;
+      cleanup();
+      if (!dragged) return;
+      this.suppressClick = true;
+      setTimeout(() => (this.suppressClick = false), 50);
+      this.dropAt(ev.clientX, ev.clientY);
+    };
+    const cleanup = () => {
+      ghost?.remove();
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+    const cancel = () => {
+      cleanup();
+      this.returnHand();
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+  }
+
+  /** Deliver the held item to whatever is under the given screen point (like a tap there). */
+  private dropAt(x: number, y: number) {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const held = this.hand;
+    if (!el || !held) return this.returnHand();
+    const slot = el.closest('button.slot, button.pile, button.switch') as HTMLElement | null;
+    if (slot) {
+      slot.click();
+    } else {
+      const opts = { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, pointerId: 1, isPrimary: true, pointerType: 'mouse' };
+      el.dispatchEvent(new PointerEvent('pointerdown', opts));
+      el.dispatchEvent(new PointerEvent('pointerup', opts));
+      el.dispatchEvent(new MouseEvent('click', { ...opts, detail: 1 }));
+    }
+    // nothing accepted it: back to where it came from (#returnToSource)
+    setTimeout(() => {
+      if (this.hand === held) this.returnHand();
+    }, 0);
   }
 
   private takeCoin() {

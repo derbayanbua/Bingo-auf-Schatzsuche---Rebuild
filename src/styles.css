@@ -1,3 +1,8 @@
+/* drag & drop of pocket items */
+.slot, .pile { touch-action: none; }
+.drag-ghost { position: fixed; z-index: 80; width: 64px; height: 64px; transform: translate(-50%, -60%); pointer-events: none; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .4)); }
+.drag-ghost > * { width: 100%; height: 100%; }
+
 :root {
   --night: #1b1446;
   --night-2: #2c1f6b;
