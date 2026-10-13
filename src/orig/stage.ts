@@ -630,7 +630,12 @@ export class Stage {
     return this.playMembers(ch, seq, fps, opts);
   }
 
-  playMembers(ch: number, seq: MemberRef[], fps = 25, opts: { loop?: boolean; pendulum?: boolean } = {}): Promise<void> {
+  /**
+   * Like playSequence with explicit members. opts.onEdge(i) fires whenever the first (0) or last
+   * (seq.length-1) member is reached; opts.onTurn(dir) when a pendulum changes direction
+   * (Two-State Animation's #soundState1/2 and #soundForward/#soundBackward hooks).
+   */
+  playMembers(ch: number, seq: MemberRef[], fps = 25, opts: { loop?: boolean; pendulum?: boolean; onEdge?: (i: number) => void; onTurn?: (dir: 1 | -1) => void } = {}): Promise<void> {
     const sp = this.sprite(ch);
     const token = {};
     sp.props.__seq = token;
@@ -653,6 +658,7 @@ export class Stage {
             if (opts.pendulum && seq.length > 1) {
               dir = -dir;
               n = i + dir;
+              if (opts.loop || dir === -1) opts.onTurn?.(dir as 1 | -1);
               if (!opts.loop && dir === 1) n = -1;
             } else if (opts.loop) n = dir > 0 ? 0 : seq.length - 1;
             else n = -1;
@@ -663,6 +669,7 @@ export class Stage {
           }
           i = n;
           sp.setMember(seq[i]);
+          if (i === 0 || i === seq.length - 1) opts.onEdge?.(i);
         }
       });
     });

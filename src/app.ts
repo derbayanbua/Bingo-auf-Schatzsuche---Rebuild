@@ -10,9 +10,15 @@ import type { CharId, GameEvent, GameState } from './game/types';
 import { NPCS } from './game/types';
 import { getScene, defaultClick, defaultUse, isVisible, objState, type SceneCtx, type SceneDef, type SceneObject } from './scenes/engine';
 import { hasOriginalGfx } from './orig/gfx';
+import { hasOriginals } from './orig/assets';
+import { hasSmacker, playSmacker } from './orig/media';
+import { applyMovieAudio } from './orig/movieAudio';
 import { mountOrigScene, type OrigScene } from './orig/sceneView';
+import { chapterScreen, introScreen, menuButtonTalk, menuGreeting, setChapterHandler, stopMenuVoice } from './orig/screens';
+import { playVoice, setVolumes, unlock as unlockOrigAudio } from './orig/sound';
+import { loadTranscripts, setSubtitles, talk } from './orig/voice';
 import {
-  DEFAULT_SETTINGS, SAVE_FILENAME, SaveError, autosave, downloadSave, loadAutosave, readSaveFile,
+  DEFAULT_SETTINGS, SAVE_FILENAME, SaveError, autosave, downloadSave, loadAutosave, loadSettings, readSaveFile, storeSettings,
   type SaveFile, type Settings,
 } from './save/save';
 import { LOOKS, dieSVG, itemName, itemSVG, portraitSVG } from './ui/art';
@@ -57,10 +63,27 @@ export class App {
     document.body.append(this.moodTip);
     document.addEventListener('keydown', (e) => this.onKey(e));
     document.addEventListener('pointerdown', unlockAudio, { once: true });
+    // original sounds (optional): unlock on every gesture (iOS), greet once audio runs
+    const gesture = () => {
+      unlockOrigAudio();
+      if (!this.game && document.querySelector('.menu')) void menuGreeting();
+    };
+    document.addEventListener('pointerdown', gesture);
+    document.addEventListener('keydown', gesture);
     const saved = loadAutosave();
-    if (saved) this.settings = saved.session.settings;
-    setEffectVolume(this.settings.effectVolume);
+    this.settings = loadSettings() ?? (saved ? saved.session.settings : { ...DEFAULT_SETTINGS });
+    this.applySettings();
+    setChapterHandler((n) => this.startChapter(n));
+    if (hasOriginals()) void loadTranscripts();
     this.showMenu();
+  }
+
+  /** push volumes / subtitle setting into the synth and the original sound engine */
+  private applySettings() {
+    const s = this.settings;
+    setEffectVolume(s.effectVolume);
+    setVolumes({ voice: s.voiceVolume, effect: s.effectVolume, music: s.musicVolume });
+    setSubtitles(s.subtitles);
   }
 
   // ================================================================ menus
@@ -79,41 +102,87 @@ export class App {
         h('h1', {}, 'Bingo ', h('span', {}, 'auf Schatzsuche')),
         h('p', { class: 'tagline' }, 'Das Brett- und Abenteuerspiel – neu für den Browser'),
         h('div', { class: 'menu-buttons' },
-          auto ? h('button', { class: 'btn btn-primary btn-big', onclick: () => this.startFromSave(auto) }, '▶ Weiterspielen') : null,
-          h('button', { class: `btn btn-big${auto ? '' : ' btn-primary'}`, onclick: () => void this.newGame() }, '✦ Neues Spiel'),
-          h('label', { class: 'btn btn-big', for: 'load-file', tabindex: '0', role: 'button',
+          auto ? h('button', { class: 'btn btn-primary btn-big', 'data-talk': '1', onclick: () => this.startFromSave(auto) }, '▶ Weiterspielen') : null,
+          h('button', { class: `btn btn-big${auto ? '' : ' btn-primary'}`, 'data-talk': '1', onclick: () => void this.newGame() }, '✦ Neues Spiel'),
+          h('label', { class: 'btn btn-big', for: 'load-file', tabindex: '0', role: 'button', 'data-talk': '1',
             onkeydown: (e: Event) => { if ((e as KeyboardEvent).key === 'Enter') fileInput.click(); } }, '📂 Spielstand laden'),
           fileInput,
-          h('button', { class: 'btn', onclick: () => this.showHelp() }, '❓ Spielanleitung'),
-          h('button', { class: 'btn', onclick: () => void this.showSettings() }, '⚙ Einstellungen'),
-          h('button', { class: 'btn', onclick: () => this.showAbout() }, 'ℹ Über dieses Spiel'),
+          h('button', { class: 'btn', 'data-talk': '2', onclick: () => this.showHelp() }, '❓ Spielanleitung'),
+          h('button', { class: 'btn', 'data-talk': '4', onclick: () => void this.showSettings() }, '⚙ Einstellungen'),
+          hasOriginalGfx() ? h('button', { class: 'btn', 'data-talk': '3', onclick: () => void this.showIntro() }, '🎬 Intro ansehen') : null,
+          h('button', { class: 'btn', 'data-talk': '3', onclick: () => this.showAbout() }, 'ℹ Über dieses Spiel'),
         ),
         auto ? h('p', { class: 'small' }, 'Dein Fortschritt wird automatisch in diesem Browser gespeichert. Das ist nicht dauerhaft garantiert – lade den Spielstand zur Sicherheit herunter.') : null,
       ),
     );
     this.root.replaceChildren(menu);
     (menu.querySelector('.btn-primary') as HTMLElement | null)?.focus();
+    if (hasOriginals()) {
+      // Interface\Main: ambience "Meer"/"Ocean-4", no music; Bingo greets and comments the buttons
+      void applyMovieAudio('Main');
+      void menuGreeting();
+      menu.querySelectorAll<HTMLElement>('[data-talk]').forEach((b) => {
+        b.addEventListener('mouseenter', () => void menuButtonTalk(+b.dataset.talk! as 1 | 2 | 3 | 4 | 5));
+        b.addEventListener('pointerdown', () => sfx.button());
+      });
+    }
   }
 
-  private async newGame() {
-    if (loadAutosave()) {
+  private async showIntro() {
+    stopMenuVoice();
+    await introScreen(document.body);
+    if (!this.game) this.showMenu();
+  }
+
+  /**
+   * Chapter start (Chapter\Chapter-n). Chapter 1 is entered from newGame(); chapters 2/3 from scene
+   * ports via startChapter(n) (src/orig/screens.ts). Chapter 2 (original Chapter-2 Next.mouseUp):
+   * CH1 + CH2 -> AS020-01, both inventories cleared (coins/jokes stay).
+   */
+  async startChapter(n: 1 | 2 | 3) {
+    if (n === 1) return this.newGame(true);
+    if (!this.game) return;
+    this.destroyOrig();
+    this.returnHand();
+    await this.chapterCard(n);
+    const g = this.g;
+    if (n === 2) {
+      for (const ch of ['CH1', 'CH2'] as const) {
+        const c = g.chars[ch];
+        c.screen = 'AS020-01';
+        c.position = 0;
+        c.inventory = ['OI000', 'OI000', 'OI000'];
+      }
+      g.currentCharacter = playerChar(g);
+    }
+    // [Prüfung erforderlich] chapter 3 entry is not specified yet: the scene port sets the screens itself
+    this.persist();
+    this.enterGame();
+  }
+
+  private async newGame(skipConfirm = false) {
+    if (!skipConfirm && loadAutosave()) {
       const ok = await dialog('Neues Spiel?', 'Der automatisch gespeicherte Fortschritt in diesem Browser wird überschrieben. Lade ihn vorher herunter, wenn du ihn behalten möchtest.', [
         { label: 'Abbrechen', value: '' },
         { label: 'Neues Spiel starten', value: 'yes', primary: true, danger: true },
       ]);
       if (ok !== 'yes') return;
     }
+    stopMenuVoice();
     this.game = createInitialState('Bingo');
     this.viewBoard = '';
-    await this.chapterCard(1);
-    await this.storyCard('Intro', 'Bingo und Puck finden eine Flaschenpost – darin steckt ein Hinweis auf einen verschollenen Schatz! Doch zuerst müssen die beiden aus dem Haus …');
+    // original: Chapter-1 card -> Next -> playSmacker("Intro", 1) -> AS001-01
+    const withVideo = hasSmacker('Intro');
+    await this.chapterCard(1, withVideo ? () => playSmacker('Intro') : undefined);
+    if (!withVideo) await this.storyCard('Intro', 'Bingo und Puck finden eine Flaschenpost – darin steckt ein Hinweis auf einen verschollenen Schatz! Doch zuerst müssen die beiden aus dem Haus …');
     this.enterGame();
   }
 
   private startFromSave(save: SaveFile) {
+    stopMenuVoice();
     this.game = save.game;
     this.settings = save.session.settings;
-    setEffectVolume(this.settings.effectVolume);
+    this.applySettings();
     this.viewBoard = '';
     this.enterGame();
     toast('Spielstand geladen.', 'good');
@@ -170,23 +239,33 @@ export class App {
       h('label', { class: 'setting' }, label,
         h('input', { type: 'range', min: '0', max: '255', value: String(s[key]), oninput: (e: Event) => {
           s[key] = parseInt((e.target as HTMLInputElement).value, 10);
-          if (key === 'effectVolume') { setEffectVolume(s[key]); sfx.click(); }
+          this.applySettings();
+          if (key === 'effectVolume') sfx.button();
+        }, onchange: () => {
+          // sample of the voice volume with an original line (if installed)
+          if (key === 'voiceVolume' && orig) void playVoice('Interface_Main', 'K1');
         } }));
+    const orig = hasOriginals();
     const turbo = h('input', { type: 'checkbox', ...(s.turboJump ? { checked: true } : {}), onchange: (e: Event) => { s.turboJump = (e.target as HTMLInputElement).checked; } });
+    const subs = h('input', { type: 'checkbox', ...(s.subtitles ? { checked: true } : {}), onchange: (e: Event) => { s.subtitles = (e.target as HTMLInputElement).checked; this.applySettings(); } });
     await dialog('Einstellungen', h('div', { class: 'settings' },
       row('Effekte', 'effectVolume'),
-      row('Sprache (noch ohne Sprachausgabe)', 'voiceVolume'),
-      row('Musik (noch ohne Musik)', 'musicVolume'),
+      row(orig ? 'Sprache' : 'Sprache (nur mit Originaldateien)', 'voiceVolume'),
+      row(orig ? 'Musik' : 'Musik (nur mit Originaldateien)', 'musicVolume'),
+      h('label', { class: 'setting check' }, subs, ' Untertitel für Sprache'),
       h('label', { class: 'setting check' }, turbo, ' Turbo-Sprung (schnellere Figuren, Taste T)'),
     ), [{ label: 'Fertig', value: 'ok', primary: true }]);
+    storeSettings(s);
     if (this.game) this.persist();
-    else try { localStorage.setItem('bingo-schatzsuche.settings', JSON.stringify(s)); } catch { /* ignore */ }
   }
 
-  private async chapterCard(n: 1 | 2 | 3) {
+  /** Chapter card: original Chapter-n screen when installed (onNext runs before it closes), else a dialog */
+  private async chapterCard(n: 1 | 2 | 3, onNext?: () => Promise<void>) {
+    if (await chapterScreen(document.body, n, onNext)) return;
     await dialog(`Kapitel ${n}`, h('div', { class: 'chapter' }, h('div', { class: 'chapter-num' }, String(n)), h('p', {}, CHAPTER_TEXT[n])), [
       { label: 'Kapitel starten', value: 'ok', primary: true },
     ]);
+    await onNext?.();
   }
 
   private async storyCard(title: string, text: string) {
@@ -361,7 +440,7 @@ export class App {
       return;
     }
     if (inv[i] === 'OI000') return;
-    sfx.click();
+    sfx.item(inv[i]);
     this.hand = inv[i];
     this.handFrom = { kind: 'slot', index: i };
     inv[i] = 'OI000';
@@ -418,6 +497,7 @@ export class App {
     const g = this.g;
     const tgt = this.viewBoard === g.chars[g.currentCharacter].screen ? this.targets : this.targets.filter((t) => t.startsWith(this.viewBoard));
     this.boardView.show(g, this.viewBoard, tgt);
+    if (hasOriginals()) void applyMovieAudio(this.viewBoard); // Landscape SPxxx music/ambience
     const arrows = (['oben', 'rechts', 'unten', 'links'] as const).map((dir, d) => {
       const nb = neighbourBoard(this.viewBoard, d);
       return nb ? h('button', { class: `edge-arrow edge-${dir}`, 'aria-label': `Brett ${nb.slice(2)} ansehen`, title: `Brett ${nb.slice(2)} ansehen`, onclick: () => this.browseBoard(nb) }, '➜') : null;
@@ -510,8 +590,16 @@ export class App {
     const visible = path.some((p) => p.startsWith(this.viewBoard));
     if (visible && path.length > 1) {
       // put the token back to the start for the animation
-      await this.boardView.animatePath(ch, path, this.stepMs(), (pid) => {
+      let lastDir: number | null = null;
+      await this.boardView.animatePath(ch, path, this.stepMs(), (pid, i) => {
         const pt = getPoint(pid);
+        // turning before the next jump (Character im Schauplatz: Stone-T/Sand-T/Dirt-T/Grass-T)
+        const nx = i + 1 < path.length ? getPoint(path[i + 1]) : null;
+        if (pt && nx) {
+          const d = Math.abs(nx.x - pt.x) > Math.abs(nx.y - pt.y) ? (nx.x > pt.x ? 2 : 4) : nx.y > pt.y ? 3 : 1;
+          if (lastDir !== null && d !== lastDir) sfx.turn(pt.g);
+          lastDir = d;
+        }
         if (pt) sfx.step(pt.g);
         const [b, n] = splitPoint(pid);
         if (events.some((e) => e.type === 'joke' && e.point === pid) && b === this.viewBoard) {
@@ -593,6 +681,7 @@ export class App {
     this.mode = 'exchange';
     this.destroyOrig();
     sfx.click();
+    if (hasOriginals()) void applyMovieAudio('Exchange');
     this.stageEl.replaceChildren(openExchange(g, ch, () => {
       this.persist();
       this.mode = 'board';
@@ -639,7 +728,7 @@ export class App {
       gotoScene: (id) => {
         g.chars[playerChar(g)].screen = id;
         g.chars[playerChar(g)].position = 0;
-        sfx.enter();
+        if (!hasOriginals()) sfx.enter();
         self.persist();
         self.renderScene(id);
         self.renderTop();
@@ -648,7 +737,11 @@ export class App {
       gotoBoard: (board, pos, dir) => {
         const id = pointId(board, pos);
         if (!checkPointFree(g, id)) {
-          self.say('Da steht schon jemand. Ich warte lieber.');
+          // Hotspot-SP: field occupied -> playerTalk(random(101,103)) (Shared/Audio-2)
+          if (hasOriginals()) {
+            const pc = g.playerCharacter === 'Puck' ? 'Puck' : 'Bingo';
+            void talk(`Shared_Audio-2/${pc}Talk-${101 + Math.floor(Math.random() * 3)}`, { movie: '', speaker: pc, host: self.orig?.el ?? null });
+          } else self.say('Da steht schon jemand. Ich warte lieber.');
           return;
         }
         const c = g.chars[playerChar(g)];
@@ -677,13 +770,17 @@ export class App {
       const item = this.hand;
       const accepted = defaultUse(ctx, def, o, item);
       if (accepted) {
-        sfx.give();
+        // inventarSound on #stayHere (original sound, else synth)
+        if (hasOriginals()) sfx.item(item);
+        else sfx.give();
         this.hand = null;
         this.handFrom = null;
       } else if (this.hand) this.returnHand();
     } else {
-      sfx.click();
+      const before = o.kind === 'item' ? objState(ctx, o) : undefined;
       defaultClick(ctx, def, o);
+      if (o.kind === 'item' && o.item && before !== objState(ctx, o)) sfx.item(o.item); // picked up
+      else if (!hasOriginals()) sfx.click();
     }
     this.persist();
     if (this.mode === 'scene' && this.g.chars[playerChar(this.g)].screen === def.id) this.renderScene(def.id);

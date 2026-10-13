@@ -21,9 +21,31 @@ export interface Settings {
   effectVolume: number;
   musicVolume: number;
   turboJump: boolean;
+  /** subtitles for voice lines (original voices only); default on */
+  subtitles: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { voiceVolume: 150, effectVolume: 150, musicVolume: 150, turboJump: false };
+export const DEFAULT_SETTINGS: Settings = { voiceVolume: 150, effectVolume: 150, musicVolume: 150, turboJump: false, subtitles: true };
+
+const SETTINGS_KEY = 'bingo-schatzsuche.settings';
+
+/** settings stored outside a game (main menu) */
+export function loadSettings(): Settings | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? validateSettings(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeSettings(s: Settings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch {
+    /* ignore */
+  }
+}
 
 export interface SaveFile {
   format: typeof SAVE_FORMAT;
@@ -144,6 +166,7 @@ function validateSettings(v: unknown): Settings {
     effectVolume: vol(v.effectVolume, DEFAULT_SETTINGS.effectVolume),
     musicVolume: vol(v.musicVolume, DEFAULT_SETTINGS.musicVolume),
     turboJump: v.turboJump === true,
+    subtitles: v.subtitles !== false,
   };
 }
 

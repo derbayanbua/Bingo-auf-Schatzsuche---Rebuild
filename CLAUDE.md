@@ -108,7 +108,9 @@ Der Besitzer des Originals kann dessen Grafiken lokal einspielen. Sie liegen in 
   `gfx/index.json` (`{dir:{member:[w,h,regX,regY,name]}}`), `gfx/score/<Dir>_<Movie>.json` (Laufzeit-Score: libs, labels, Frames mit Sprites `[ch,castLib,member,left,top,w,h,ink,blend,behaviors,name]`, Behavior-Parameter als JSON). ~50 MB.
 * Laufzeit: `src/orig/gfx.ts` (Index, `hasOriginalGfx()`, Item-Icons, Cursor), `src/orig/stage.ts` (Director-artige Sprite-Bühne: `loadMovie`, `Movie.member/frame/sequence`, `Stage.sprite(ch)`, Alpha-Hit-Test, `on(ch,'mouseUp',fn)`, `playSequence`, `onTick`),
   `src/orig/sceneView.ts` (Original-Szenenansicht über der generischen Engine; szenenspezifische Ports per `registerOrigScene(id, scene => …)`). `app.ts` nutzt sie automatisch, wenn `public/orig/gfx/index.json` existiert.
-* Audio: `src/orig/assets.ts`, `src/orig/sound.ts` (separat).
+* Audio/Video/Frames: `sound.ts` (Kanäle), `voice.ts` (talk + Mund + Untertitel aus `audio/transcripts.json`), `media.ts` (`playSmacker`),
+  `movieAudio.ts` (Music/Ambient Controller), `score.ts` (Frame-Wiedergabe), `screens.ts` (Kapitelkarten, Intro, Hauptmenü-Stimme, `startChapter`).
+  API für Szenen-Ports: **`src/orig/README.md`**; Ports liegen in `src/orig/scenes/*.ts` (automatisch registriert).
 
 ## Spielstandformat (Version 1)
 

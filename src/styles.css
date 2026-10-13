@@ -226,3 +226,16 @@ svg.board, svg.scene { width: 100%; height: auto; max-height: 100%; aspect-ratio
   .dice { margin-left: 0; }
   .hand { top: auto; bottom: 8px; left: auto; right: 200px; transform: none; position: fixed; }
 }
+
+/* ---------------------------------------------------------------- original media (public/orig) */
+.smk-overlay { position: fixed; inset: 0; z-index: 90; background: #000; display: grid; place-items: center; cursor: pointer; animation: fade .2s; }
+.smk-box { width: min(100vw, calc(100dvh * 800 / 448)); aspect-ratio: 800 / 448; display: grid; place-items: center; }
+.smk-video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.smk-hint { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, .55); font-size: .85rem; pointer-events: none; }
+.smk-play { position: absolute; width: 96px; height: 96px; border-radius: 50%; border: 0; font-size: 2.6rem; background: var(--sun); color: #3a2a00; box-shadow: var(--shadow); cursor: pointer; }
+.subtitle { position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%); z-index: 400; max-width: 86%; width: max-content;
+  background: rgba(15, 10, 40, .78); color: #fff; padding: .35em .8em; border-radius: 12px; font-size: clamp(.85rem, 2.2vw, 1.15rem); line-height: 1.3; text-align: center; pointer-events: none; animation: fade .15s; }
+.subtitle b { color: var(--sun); }
+.subtitle-fixed { position: fixed; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 95; }
+.orig-screen { position: fixed; inset: 0; z-index: 40; background: #000; display: grid; place-items: center; container-type: size; }
+.ostage.ostage-full { width: min(100cqw, calc(100cqh * 800 / 600)); border-radius: 0; box-shadow: none; }

@@ -83,16 +83,33 @@ export function castSearchOrder(movie: string): string[] {
  * (names are case-insensitive in Lingo). `memberName` may also be "cast/name" to force a cast.
  */
 export function soundUrl(movie: string, memberName: string): string | null {
+  const k = soundKey(movie, memberName);
+  return k ? BASE + k.url : null;
+}
+
+/**
+ * Like soundUrl, but also returns the resolved cast and the member's real name
+ * (`key` = "<cast>/<Name>", the key format of audio/transcripts.json).
+ */
+export function soundKey(movie: string, memberName: string): { cast: string; name: string; key: string; url: string } | null {
   if (!manifest) return null;
+  const find = (cast: string, lname: string) => {
+    const u = lowerIndex[cast]?.[lname];
+    if (!u) return null;
+    const name = Object.keys(audio[cast]).find((n) => n.toLowerCase() === lname) ?? lname;
+    return { cast, name, key: `${cast}/${name}`, url: u };
+  };
   const slash = memberName.indexOf('/');
-  if (slash > 0 && lowerIndex[memberName.slice(0, slash)]) {
-    const u = lowerIndex[memberName.slice(0, slash)][memberName.slice(slash + 1).toLowerCase()];
-    return u ? BASE + u : null;
-  }
+  if (slash > 0 && lowerIndex[memberName.slice(0, slash)]) return find(memberName.slice(0, slash), memberName.slice(slash + 1).toLowerCase());
   const key = memberName.toLowerCase();
   for (const cast of castSearchOrder(movie)) {
-    const u = lowerIndex[cast]?.[key];
-    if (u) return BASE + u;
+    const r = find(cast, key);
+    if (r) return r;
   }
   return null;
+}
+
+/** audio/transcripts.json URL (optional machine transcription, "<cast>/<Name>" -> text) */
+export function transcriptsUrl(): string {
+  return BASE + 'audio/transcripts.json';
 }
