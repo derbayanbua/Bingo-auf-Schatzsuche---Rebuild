@@ -6,7 +6,7 @@
 // stage), so the SVG viewBox is "0 45 800 448" and all points are drawn at their original x/y.
 
 import { BOARDS, getPoint, pointId, splitPoint } from '../game/data';
-import { checkPointTyp, pointState } from '../game/logic';
+import { checkPointTyp, pointNeighbours, pointState } from '../game/logic';
 import type { CharId, GameState } from '../game/types';
 import { ALL_CHARS } from '../game/types';
 import { OBSTACLE_POINTS, OrigBoardDecor, hasOrigBoard, moodMember, origBackground, origHop, origPoint, origToken, preloadBoardMembers, setImage } from '../orig/boardOrig';
@@ -331,7 +331,8 @@ export class BoardView {
     for (let i = 1; i < path.length; i++) {
       const a = getPoint(path[i - 1])!, b = getPoint(path[i])!;
       const [ba] = splitPoint(path[i - 1]), [bb] = splitPoint(path[i]);
-      const d = a.nb.indexOf(path[i]);
+      // runtime board changes (AS038-01 bridge) are part of the neighbour list
+      const d = (this.state ? pointNeighbours(this.state, path[i - 1]) : a.nb).indexOf(path[i]);
       if (ba !== this.board && bb !== this.board) continue;
       // entering from another board: start one field outside the edge (original: nextTrackPoint)
       let ax = a.x, ay = a.y;

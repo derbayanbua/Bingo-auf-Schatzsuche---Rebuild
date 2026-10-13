@@ -73,6 +73,7 @@ const MODES: CharMode[] = ['player', 'stopped', 'random', 'hunt', 'deliver'];
 const ITEM_RE = /^OI\d{3}$/;
 const SCREEN_RE = /^(|SP\d{3}|AS\d{3}-\d{2}|GS\d{3}-\d{2})$/;
 const SCENE_RE = /^(AS|GS)\d{3}-\d{2}$/;
+const BOARD_FIELD_RE = /^SP\d{3}$/;
 
 function fail(msg: string): never {
   throw new SaveError(msg);
@@ -128,12 +129,14 @@ function validateGame(v: unknown): GameState {
   const scenes = Object.entries(v.sceneState);
   if (scenes.length > 500) fail('Zu viele Szenen');
   for (const [k, kv] of scenes) {
-    str(k, SCENE_RE, 'Szenenname');
+    // AS/GS scene fields + board field overrides (SPxxx: "L<line>I<item>" -> value, see logic.pointNeighbours)
+    const board = BOARD_FIELD_RE.test(k);
+    if (!board) str(k, SCENE_RE, 'Szenenname');
     if (!isObj(kv)) fail(`Szene ${k} ungültig`);
     const entries = Object.entries(kv);
     if (entries.length > 200) fail(`Szene ${k} zu groß`);
     sceneState[k] = {};
-    for (const [a, b] of entries) sceneState[k][str(a, /^[\w-]{1,32}$/, `Schlüssel ${k}`)] = str(b, /^[\w-]{0,32}$/, `Wert ${k}.${a}`);
+    for (const [a, b] of entries) sceneState[k][str(a, board ? /^L\d{1,2}I\d{1,2}$/ : /^[\w-]{1,32}$/, `Schlüssel ${k}`)] = str(b, /^[\w-]{0,32}$/, `Wert ${k}.${a}`);
   }
 
   const last: GameState['lastBoardPoint'] = {};

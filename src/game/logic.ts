@@ -47,9 +47,43 @@ export function checkPointTyp(id: string): PointType {
   return 'standard';
 }
 
-function neighbours(id: string): (string | null)[] {
-  return getPoint(id)?.nb ?? [null, null, null, null];
+/**
+ * Board field changes at runtime: scenes may rewrite items of a board field line, e.g. AS038-01
+ * (Hängebrücke) `member("SP038").line[15].item[4] = "SP038-14"` and the blasting
+ * `member("SP038").line[18].item[10] = "AS045-02"`. They are stored in the save as
+ * `sceneState["SPxxx"]["L<line>I<item>"] = value` (item 4..7 = up/right/down/left, 10 = target;
+ * "________" / "" = no neighbour). Missing keys = the static board data.
+ */
+export function boardItemKey(line: number, item: number): string {
+  return `L${line}I${item}`;
 }
+
+/** value of a runtime board item override, undefined = static data */
+function boardOverride(s: GameState, id: string, item: number): string | undefined {
+  const [b, n] = splitPoint(id);
+  return s.sceneState[b]?.[boardItemKey(n, item)];
+}
+
+const isPointRef = (v: string) => /^SP\d{3}-\d{2}$/.test(v);
+
+/** neighbours [up, right, down, left] of a point incl. runtime overrides (AS038-01 bridge) */
+export function pointNeighbours(s: GameState, id: string): (string | null)[] {
+  const nb = [...(getPoint(id)?.nb ?? [null, null, null, null])];
+  for (let d = 0; d < 4; d++) {
+    const v = boardOverride(s, id, 4 + d);
+    if (v !== undefined) nb[d] = isPointRef(v) ? v : null;
+  }
+  return nb;
+}
+
+/** target scene (item 10) of a point incl. runtime overrides (AS038-01: SP038-18 -> AS045-02) */
+export function pointTarget(s: GameState, id: string): string | null {
+  const v = boardOverride(s, id, 10);
+  if (v !== undefined) return /^(AS|GS)\d{3}-\d{2}$/.test(v) ? v : null;
+  return getPoint(id)?.t ?? null;
+}
+
+const neighbours = (s: GameState, id: string) => pointNeighbours(s, id);
 
 /**
  * searchTargets: every point reachable with 1..distance steps (no immediate reversal,
@@ -62,7 +96,7 @@ export function searchTargets(s: GameState, ch: CharId, distance: number, allowe
     if (track.length > distance) return; // original: a point pushed at depth == distance gets direction 5
     const cur = track[track.length - 1];
     const prev = track[track.length - 2];
-    for (const nxt of neighbours(cur)) {
+    for (const nxt of neighbours(s, cur)) {
       if (!nxt || nxt === prev || !checkPointFree(s, nxt)) continue;
       if (allowed === 'all' || checkPointTyp(nxt) === 'standard') targets.push(nxt);
       walk([...track, nxt]);
@@ -83,7 +117,7 @@ export function searchTrack(s: GameState, ch: CharId, target: string, numberOfMo
   const dfs = (): boolean => {
     if (track.length > numberOfMoves) return false;
     const cur = track[track.length - 1];
-    for (const nxt of neighbours(cur)) {
+    for (const nxt of neighbours(s, cur)) {
       if (!nxt || track.includes(nxt)) continue;
       if (!checkPointFree(s, nxt) && nxt !== target) continue;
       track.push(nxt);
@@ -103,7 +137,7 @@ export function searchRandomTargets(s: GameState, ch: CharId, distance: number, 
   const wrap = (d: number) => ((d - 1 + 4) % 4) + 1;
   for (;;) {
     const cur = track[track.length - 1];
-    const nb = neighbours(cur);
+    const nb = neighbours(s, cur);
     const possible: number[] = [];
     for (let d = 1; d <= 4; d++) {
       const nxt = nb[d - 1];
@@ -172,14 +206,14 @@ export function giveItem(s: GameState, ch: CharId, item: string): boolean {
 export function characterContact(s: GameState, c1: CharId, c2: CharId): boolean {
   if (!isBoard(s.chars[c1].screen)) return false;
   const loc2 = location(s, c2);
-  return neighbours(location(s, c1)).includes(loc2);
+  return neighbours(s, location(s, c1)).includes(loc2);
 }
 
 /** locationNearAnyCharacter: first NPC (CH3..CH8) standing next to the given point. */
 export function locationNearAnyCharacter(s: GameState, loc: string): CharId | 'CH0' {
   for (let p = 3; p <= 8; p++) {
     const c2 = ('CH' + p) as CharId;
-    if (neighbours(loc).includes(location(s, c2))) return c2;
+    if (neighbours(s, loc).includes(location(s, c2))) return c2;
   }
   return 'CH0';
 }
@@ -254,13 +288,13 @@ export function applyWalk(s: GameState, ch: CharId, path: string[], events: Game
       events.push({ type: 'joke', ch, point: id });
     }
     if (i + 1 < path.length) {
-      const d = neighbours(id).indexOf(path[i + 1]);
+      const d = neighbours(s, id).indexOf(path[i + 1]);
       if (d >= 0) dir = d + 1;
     }
   }
   const last = path[path.length - 1];
   const [b, n] = splitPoint(last);
-  const target = getPoint(last)?.t;
+  const target = pointTarget(s, last);
   if ((ch === 'CH1' || ch === 'CH2') && target && path.length > 1) {
     s.lastBoardPoint[ch] = last;
     c.screen = target;
