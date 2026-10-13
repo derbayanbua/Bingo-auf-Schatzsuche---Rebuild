@@ -1,0 +1,83 @@
+# Bingo auf Schatzsuche – Rebuild (Development Build)
+
+Ein **Spaßprojekt**, um ein altes Kinderspiel wieder zum Leben zu erwecken:
+eine Neuprogrammierung des Brett- und Abenteuerspiels **„Bingo auf Schatzsuche“** (2001) für moderne Browser –
+auf Windows, macOS, Android und iOS, ohne Shockwave, Flash oder Emulator.
+
+> **Status: Development Build.** Das Spiel ist in Arbeit. Es kann Fehler enthalten, Spielstände können zwischen Versionen ungültig werden.
+
+▶ **Im Browser spielen:** https://derbayanbua.github.io/Bingo-auf-Schatzsuche---Rebuild/
+(öffentliche Version mit neu gezeichneten Ersatzgrafiken, ohne Originalmedien – siehe unten)
+
+---
+
+## Was ist das?
+
+Die Spielregeln, die 33 Spielbretter, die Wege- und Würfellogik, die Figuren-Steuerung (inklusive Pirat Rocco, der Gegenstände klaut),
+das Tauschen mit Launen-System und die Abläufe der Szenen und Minispiele wurden aus den Dateien des Originals
+**rekonstruiert und in TypeScript neu geschrieben**. Es wird **kein** Originalcode ausgeführt.
+
+* Brettspiel mit zwei Würfeln, Witzfeldern, Schranken, Tauschen und Rocco
+* Abenteuer-Szenen und Minispiele der drei Kapitel
+* Automatisches Speichern im Browser, **Spielstand herunterladen / laden** (JSON, geräteübergreifend)
+* Maus, Tastatur und Touch; Hoch- und Querformat
+
+## Originalmedien (nicht enthalten)
+
+Grafiken, Filme, Musik und Sprachaufnahmen des Originals sind urheberrechtlich geschützt und **nicht** in diesem Repository.
+Wer eine eigene Kopie des Originalspiels besitzt, kann sie für den **privaten Gebrauch** lokal importieren:
+
+```bash
+python -P tools/import_original_assets.py   # Videos, Musik, Stimmen  -> public/orig/
+python -P tools/export_graphics.py          # Grafiken                -> public/orig/gfx/
+```
+
+(Die Werkzeuge liegen im übergeordneten Arbeitsordner und benötigen ProjectorRays + ffmpeg; Details in `CLAUDE.md`.)
+Ohne diese Dateien läuft das Spiel mit eigenen Vektorgrafiken und synthetischen Klängen.
+
+## Starten
+
+**Fertigen Build spielen (Windows, ohne Installation):** `dist/Spiel starten.cmd` doppelklicken –
+startet einen kleinen lokalen Webserver (nur Windows-PowerShell) und öffnet den Browser.
+Mit `"Spiel starten.cmd" -Lan` ist das Spiel auch für andere Geräte im WLAN erreichbar.
+
+Ein direktes Öffnen der `index.html` per Doppelklick (`file://`) funktioniert nicht, weil Browser dort das Nachladen der Spieldaten blockieren.
+
+**Entwickeln:**
+
+```bash
+npm install
+npm run dev      # http://localhost:5173  (oder "Entwicklung starten.cmd")
+npm test
+npm run build    # -> dist/ (statisch, beliebiger Webserver oder Unterordner)
+```
+
+## Hosting
+
+`dist/` ist eine rein statische Website (kein Server-Code, keine Datenbank) und läuft auf jedem Webspace, NAS oder GitHub Pages,
+auch in Unterverzeichnissen. Die GitHub-Pages-Version wird automatisch per GitHub Actions gebaut (`.github/workflows/pages.yml`).
+
+---
+
+## Rechtliches / Rechteinhaber
+
+* **„Bingo auf Schatzsuche“**, die Figuren **Bingo** und **Puck** sowie alle Originalinhalte sind Eigentum der jeweiligen Rechteinhaber
+  (Originalspiel: Outline Multimedia GmbH / more software Mediengesellschaft mbH, 2001; Titellizenz: Ensslin-Verlag; Figurenvorlagen: Michael Grunwald).
+  Dieses Projekt steht in **keiner Verbindung** zu ihnen und ist nicht von ihnen autorisiert.
+* Es ist ein **nicht-kommerzielles Fan- und Erhaltungsprojekt**. Es werden keine Originaldateien verbreitet.
+* **Takedown:** Wenn Rechteinhaber oder sonst jemand ein Problem mit diesem Projekt hat, genügt eine Nachricht (GitHub-Issue oder Kontakt zum Repository-Inhaber) –
+  **wir löschen das gesamte Projekt umgehend.**
+* Der neu geschriebene Programmcode steht unter der MIT-Lizenz (siehe [LICENSE](LICENSE)); diese Lizenz gilt **nicht** für Marken, Figuren oder Originalinhalte.
+  Soweit Rechte an Beiträgen zu diesem Projekt bestehen, werden sie den Rechteinhabern des Originals auf Anfrage vollständig überlassen.
+
+## KI-Hinweis (AI Disclaimer)
+
+Große Teile dieses Projekts – Analyse der Originaldateien, Rekonstruktion der Spiellogik, Programmcode, Texte und Grafiken –
+wurden mit Hilfe von KI (Claude von Anthropic) erstellt und nur teilweise von Menschen geprüft.
+Die maschinell erstellten Untertitel und Rekonstruktionen können Fehler enthalten.
+
+## Haftungsausschluss – Nutzung auf eigene Gefahr
+
+Die Software wird **ohne jede Gewährleistung** bereitgestellt („as is“). Nutzung **auf eigene Gefahr**.
+Die Autoren haften nicht für Schäden, Datenverlust oder Rechtsfolgen, die aus der Nutzung entstehen.
+Spielstände werden nur lokal im Browser bzw. in heruntergeladenen Dateien gespeichert; es werden keine Daten an einen Server übertragen.
