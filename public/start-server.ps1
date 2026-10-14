@@ -8,6 +8,22 @@ param([int]$Port = 8080, [switch]$Lan)
 
 $ErrorActionPreference = 'Stop'
 $root = [IO.Path]::GetFullPath((Split-Path -Parent $MyInvocation.MyCommand.Path))
+# Das Spiel (index.html) muss im selben Ordner liegen. Wurde das Skript aus dem Quellcode-Ordner "public"
+# gestartet, wird automatisch der fertige Build "dist" daneben verwendet.
+if (-not (Test-Path (Join-Path $root 'index.html'))) {
+  $dist = [IO.Path]::GetFullPath((Join-Path $root '..\dist'))
+  if (Test-Path (Join-Path $dist 'index.html')) {
+    Write-Host "  Hinweis: Hier liegt kein fertiges Spiel - verwende den Build-Ordner $dist"
+    $root = $dist
+  } else {
+    Write-Host ''
+    Write-Host '  Fehler: In diesem Ordner liegt kein fertiges Spiel (index.html fehlt).'
+    Write-Host '  Bitte "Spiel starten.cmd" im entpackten Spiel-Ordner (Release-ZIP) bzw. im Ordner "dist" starten.'
+    Write-Host '  Entwickler: zuerst "npm run build" ausfuehren.'
+    Read-Host 'Enter zum Beenden'
+    exit 1
+  }
+}
 $types = @{
   '.html'='text/html; charset=utf-8'; '.js'='text/javascript; charset=utf-8'; '.css'='text/css; charset=utf-8';
   '.json'='application/json; charset=utf-8'; '.svg'='image/svg+xml'; '.png'='image/png'; '.webp'='image/webp';
