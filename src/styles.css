@@ -1,3 +1,11 @@
+/* proof-of-concept notice (web version without original media) */
+.poc-notice { text-align: left; background: #fff4d6; border: 2px solid #f0b400; border-radius: 14px; padding: 10px 14px; margin: 0 0 14px; font-size: .9rem; line-height: 1.35; color: #3a2a00; }
+.poc-notice p { margin: .4em 0; }
+.poc-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: .6em !important; }
+.poc-links a { display: inline-block; padding: 6px 12px; border-radius: 999px; background: #3a2a00; color: #fff; text-decoration: none; font-weight: 700; }
+.poc-links a:hover { background: #5a4400; }
+.poc-badge { border: 0; border-radius: 999px; padding: 4px 10px; background: #f0b400; color: #3a2a00; font-weight: 800; cursor: pointer; }
+
 /* drag & drop of pocket items */
 .slot, .pile { touch-action: none; }
 /* sprite 110 "Inventar in der Hand": the held item follows the mouse (touch: above the finger) */

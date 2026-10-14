@@ -142,6 +142,7 @@ export class App {
         h('div', { class: 'menu-heroes', 'aria-hidden': 'true' }, fromSVG(portraitSVG('CH1')), fromSVG(portraitSVG('CH2'))),
         h('h1', {}, 'Bingo ', h('span', {}, 'auf Schatzsuche')),
         h('p', { class: 'tagline' }, 'Das Brett- und Abenteuerspiel – neu für den Browser'),
+        hasOriginals() ? null : pocNotice(),
         h('div', { class: 'menu-buttons' },
           auto ? h('button', { class: 'btn btn-primary btn-big', 'data-talk': '1', onclick: () => this.startFromSave(auto) }, '▶ Weiterspielen') : null,
           h('button', { class: `btn btn-big${auto ? '' : ' btn-primary'}`, 'data-talk': '1', onclick: () => void this.newGame() }, '✦ Neues Spiel'),
@@ -372,6 +373,7 @@ export class App {
     this.topEl.replaceChildren(
       h('button', { class: 'icon-btn', 'aria-label': 'Menü', title: 'Menü', onclick: () => void this.gameMenu() }, '☰'),
       h('div', { class: 'where' }, where),
+      ...(hasOriginals() ? [] : [h('button', { class: 'poc-badge', title: 'Technische Demo – Hinweis anzeigen', onclick: () => void dialog('Technische Demo (Proof of Concept)', pocNotice(), [{ label: 'Verstanden', value: 'ok', primary: true }]) }, 'PoC')]),
       h('button', { class: 'icon-btn', 'aria-label': 'Spielstand herunterladen', title: 'Spielstand herunterladen', onclick: () => this.download() }, '💾'),
     );
   }
@@ -1292,6 +1294,24 @@ export class App {
       }
     }
   }
+}
+
+const REPO_URL = 'https://github.com/derbayanbua/Bingo-auf-Schatzsuche---Rebuild';
+const HOWTO_URL = `${REPO_URL}#mit-originalgrafik-und--ton-spielen`;
+const RELEASES_URL = `${REPO_URL}/releases/latest`;
+
+/** Notice shown when the original media are not installed (e.g. the public web version). */
+function pocNotice(): HTMLElement {
+  return h('div', { class: 'poc-notice', role: 'note' },
+    h('strong', {}, '⚠ Technische Demo (Proof of Concept)'),
+    h('p', {}, 'Diese Web-Version zeigt nur technisch, dass das Spiel in ein modernes Browser-System migriert wurde. ' +
+      'Grafiken sind Platzhalter, Filme, Musik und Stimmen fehlen, und die Minispiele sind nicht spielbar – Kapitel 2 und 3 sind daher nicht erreichbar.'),
+    h('p', {}, 'Für das vollwertige Erlebnis mit Originalgrafik, Filmen und Sprachausgabe: Spiel herunterladen und mit den Dateien ',
+      h('b', {}, 'deiner eigenen Original-CD'), ' anreichern.'),
+    h('p', { class: 'poc-links' },
+      h('a', { href: HOWTO_URL, target: '_blank', rel: 'noopener' }, '📖 Anleitung: So geht’s'),
+      h('a', { href: RELEASES_URL, target: '_blank', rel: 'noopener' }, '⬇ Download (Heimspiel-Paket)')),
+  );
 }
 
 /** changeSP / Framescript SP: first neighbour board referenced in the given direction. */
