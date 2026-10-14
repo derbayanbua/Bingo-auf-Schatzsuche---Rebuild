@@ -122,6 +122,16 @@ Bekannte Abweichungen / Fehler:
 * Ohne Originalgrafik (Vektoransicht) nimmt ein Klick auf die Kiste den ersten Gegenstand heraus bzw. legt den gehaltenen in den ersten freien Platz.
 * Figurennamen CH3/5/6/8 unbekannt.
 
+## Backlog
+
+1. **Eigenständiger 1:1-Rebuild mit neuen Assets** (nächstes großes Ziel, Auftrag vom 2026-10-14):
+   Alles aus dem Original (Szenen, Sprite-Positionen, Animationen, Abläufe, Dialoge, Minispiele) wird 1:1 in das neue System
+   migriert, aber mit **neu erzeugten Grafiken, Tönen und Stimmen** und **leicht abgewandelten Figuren** (eigene Namen/Designs),
+   sodass das Spiel ohne Originaldateien vollständig spielbar und veröffentlichbar ist. Die Originalmedien dienen nur noch als
+   Referenz (Layout, Timing, Inhalt). Offene Grundsatzentscheidungen: Grafik-Erzeugung (Werkzeug/Stil), Sprache (Sprecher/TTS),
+   Ersatz der Filme, neue Figurennamen/-designs, neue Dialogtexte.
+2. Tauchen (GS005-06) und Segeln (GS020-04) von Menschen durchspielen lassen; Knopfgrößen auf dem Handy; Untertitel korrigieren.
+
 ## Original-Assets (optional, nur private Nutzung)
 
 Endnutzer-Weg: Release-ZIP (`tools/make-release-zip.ps1`, `.github/workflows/release.yml` bei Tag `v*`) → `Originaldateien importieren.cmd`
