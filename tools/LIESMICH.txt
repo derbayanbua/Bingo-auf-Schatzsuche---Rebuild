@@ -37,10 +37,10 @@ PROBLEME?
   installieren, dabei "Add python.exe to PATH" anhaken, Programm neu starten.
 * Virenschutz meldet sich: Die Hilfsprogramme ProjectorRays und ffmpeg werden
   von github.com geladen (ProjectorRays mit Prüfsumme). Ggf. erlauben.
-* Spiel auf Tablet/Handy im WLAN: Eingabeaufforderung in diesem Ordner öffnen
-  und  "Spiel starten.cmd" -Lan  eingeben; die angezeigte Adresse
-  (http://192.168...:8080/) auf dem Tablet öffnen. Evtl. sind dafür
-  Administratorrechte nötig und die Windows-Firewall fragt nach.
+* Spiel auf Tablet/Handy im WLAN: "Spiel im Netzwerk starten.cmd" doppelklicken
+  und die angezeigte Adresse (http://192.168...:8080/) auf dem Tablet öffnen.
+  Keine Administratorrechte nötig. Fragt die Windows-Firewall nach:
+  "Zugriff zulassen" für private Netzwerke wählen.
 * Ausführliche Anleitung: README auf der GitHub-Projektseite,
   Abschnitt "Mit Originalgrafik und -ton spielen".
 

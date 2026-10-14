@@ -147,7 +147,7 @@ Sie brauchen **kein** Node.js, keine Kommandozeile und keine Administratorrechte
 | **Videos fehlen** | Bei einer Installation ohne CD gibt es keine Videos. CD einlegen und den Import erneut starten – er ergänzt dann nur die Videos. |
 | Spiel startet nicht / **„Kein freier Port“** | `Spiel starten.cmd` sucht selbst einen freien Port ab 8080. Alte schwarze Spielfenster schließen und erneut starten. |
 | Browser zeigt die einfache Grafik | Prüfen, ob neben `index.html` der Ordner `orig` mit `manifest.json` liegt; Seite mit Strg+F5 neu laden. |
-| **Auf iPad, Tablet oder Handy spielen** (im gleichen WLAN) | Im Spielordner in die Adresszeile des Explorers `cmd` tippen → Enter → `"Spiel starten.cmd" -Lan` eingeben. Die angezeigte Adresse (z. B. `http://192.168.178.20:8080/`) auf dem Tablet öffnen. Evtl. sind dafür Administratorrechte nötig („Als Administrator ausführen“) und die Windows-Firewall fragt nach – „Private Netzwerke“ erlauben. |
+| **Auf iPad, Tablet oder Handy spielen** (im gleichen WLAN) | `Spiel im Netzwerk starten.cmd` doppelklicken und die angezeigte Adresse (z. B. `http://192.168.178.20:8080/`) auf dem Tablet öffnen. Keine Administratorrechte nötig. Fragt die Windows-Firewall nach: „Zugriff zulassen“ für private Netzwerke. Beide Geräte müssen im selben (W)LAN sein; Gäste-WLANs blockieren oft Verbindungen zwischen Geräten. |
 
 **macOS / Linux:** Der Import ist derzeit **nur für Windows** gedacht und getestet (er nutzt Windows-Fenster, winget und
 Windows-Programmdateien von ProjectorRays/ffmpeg). Am einfachsten importiert man einmal an einem Windows-PC und kopiert
