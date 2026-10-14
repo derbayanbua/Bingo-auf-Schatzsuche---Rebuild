@@ -75,6 +75,6 @@ export default defineMovie({
   'Pendel-*': (m, w, h) => pendulum(w, h, -9 + (18 * ((m.frame ?? 1) - 1)) / 20),
   Bodenvase: (m, w, h) => g({ transform: `translate(${w / 2} ${h / 2 + 2}) scale(${w / 62} ${h / 62})` }, itemShape('OI001')),
   Teller: (m, w, h) => ellipse(w / 2, h / 2 + 2, w / 2 - 3, h / 2 - 5, { fill: C.white, stroke: '#8a93a6', strokeWidth: 3 }) + ellipse(w / 2, h / 2, w / 2 - 22, h / 2 - 12, { fill: '#e9eef6', stroke: '#b9c2d2', strokeWidth: 2 }) + path(`M10 ${h / 2 + 2} q${w / 2 - 10} 14 ${w - 20} 0`, { fill: 'none', stroke: C.blue, strokeWidth: 2 }),
-  Eintrittskarte: (m, w, h) => g({ transform: `translate(${w / 2} ${h / 2}) scale(1.05 0.62)` }, itemShape('OI065')),
+  Eintrittskarte: (m, w, h) => g({ transform: `translate(${w / 2} ${h / 2}) scale(1.05 0.62)` }, itemShape('OI002')),
   Karte: (m, w, h) => rect(2, 3, w - 4, h - 6, { rx: 3, fill: '#f3e2b0', stroke: '#a0782a', strokeWidth: 2 }) + path(`M8 ${h / 2} q${w / 4} -6 ${w / 2} 0 t${w / 2 - 16} 0`, { fill: 'none', stroke: '#a0322a', strokeWidth: 1.6, strokeDasharray: '3 2' }) + ellipse(5, h / 2, 4, h / 2 - 3, { fill: '#e2cd96', stroke: '#a0782a', strokeWidth: 1.5 }),
 });

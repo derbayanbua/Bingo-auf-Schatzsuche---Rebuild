@@ -191,7 +191,8 @@ export default defineMovie({
   'Tuer-*': (m) => inScene(m, door(m.frame ?? 1)),
   Pflanze: (m) => inScene(m, palm()),
   OS027: (m, w, h) => item('OI027', w, h),
-  OS012: (m, w, h) => item('OI012', w, h),
+  // thin hook: an almost invisible halo (alpha ≈ 30 > hit threshold 24) makes the whole member clickable
+  OS012: (m, w, h) => ellipse(w / 2, h / 2, w / 2 - 1, h / 2 - 1, { fill: '#fff8e0', opacity: 0.12 }) + item('OI012', w, h),
   Butler: (m) => inScene(m, butler({}, 'body')),
   'ButlerArme-*': (m) => inScene(m, butler({ ButlerArme: m.frame ?? 1 }, 'arms')),
   'ButlerAugen-*': (m) => inScene(m, butler({ ButlerAugen: m.frame ?? 1 }, 'eyes')),

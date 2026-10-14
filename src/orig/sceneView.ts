@@ -542,6 +542,9 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
         const interactive = o.kind !== 'deco' || !!o.onClick;
         const ch = objCh.get(o) ?? keyToCh.get(o.key);
         const onStage = ch !== undefined && stage.has(ch);
+        // game screens: frame 1 is the instruction card – a two-state object without a sprite there (e.g. the
+        // GS009-01 window) belongs to the game frames; do not draw the generic vector stand-in over the card
+        if (!onStage && o.kind === 'twoState' && def.id.startsWith('GS')) continue;
         if (!onStage) {
           const art = o.draw ? o.draw(ctx, objState(ctx, o)) : '';
           markup += `<g class="obj${interactive ? ' hot' : ''}" data-key="${esc(o.key)}">${art}${interactive ? `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" class="hit"/>` : ''}<title>${esc(o.label)}</title></g>`;

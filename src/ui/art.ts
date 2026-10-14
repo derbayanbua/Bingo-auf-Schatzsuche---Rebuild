@@ -141,15 +141,15 @@ export function portraitSVG(ch: CharId, extra = ''): string {
 
 /** Item names (German) derived from the original item graphics (names are descriptive, see CLAUDE.md). */
 export const ITEM_NAMES: Record<string, string> = {
-  OI001: 'Blaue Vase', OI002: 'Tube', OI003: 'Teller', OI004: 'Blumentopf', OI005: 'Kreide', OI006: 'Witzkarte',
-  OI007: 'Münze', OI008: 'Krug', OI009: 'Schwarzer Schlüssel', OI010: 'Holzstück', OI012: 'Haken', OI013: 'Grüne Flasche',
+  OI001: 'Blaue Vase', OI002: 'Eintrittskarte', OI003: 'Teller', OI004: 'Blumentopf', OI005: 'Kreide', OI006: 'Witzkarte',
+  OI007: 'Münze', OI008: 'Krug', OI009: 'Hausschlüssel', OI010: 'Holzstück', OI012: 'Haken', OI013: 'Grüne Flasche',
   OI014: 'Power-Riegel', OI015: 'Gitter', OI016: 'Stange', OI017: 'Schraubenschlüssel', OI018: 'Mütze', OI021: 'Taucherbrille',
   OI022: 'Gasflaschen', OI023: 'Grüne Zange', OI025: 'Muschel', OI026: 'Schlüssel', OI027: 'Streichholzschachtel', OI028: 'Stein',
   OI032: 'Flaschenpost', OI034: 'Messer', OI035: 'Putzlappen', OI036: 'Flamme', OI037: 'Handspiegel', OI038: 'Rezept',
   OI039: 'Flaschenpost', OI040: 'Schatzkarte', OI041: 'Rotes Glas', OI042: 'Blaues Glas', OI043: 'Rosa Glas', OI045: 'Salzstreuer',
   OI049: 'Holzstück', OI050: 'Holzstück', OI051: 'Holzstück', OI052: 'Schaufel', OI054: 'Nagel', OI055: 'Zündkasten',
   OI056: 'Kartenstück 1', OI057: 'Kartenstück 2', OI058: 'Kartenstück 3', OI059: 'Kartenstück 4', OI060: 'Kartenstück 5',
-  OI061: 'Kartenstück 6', OI062: 'Kartenstück 7', OI063: 'Eimer', OI064: 'Brief', OI065: 'Eintrittskarte', OI066: 'Dynamit',
+  OI061: 'Kartenstück 6', OI062: 'Kartenstück 7', OI063: 'Eimer', OI064: 'Brief', OI065: 'Teilnahmekarte', OI066: 'Dynamit',
   OI068: 'Schlüssel', OI069: 'Schlüssel', OI070: 'Schlüssel', OI071: 'Eimer mit Wasser', OI073: 'Rechen', OI074: 'Verbeulter Eimer',
   OI075: 'Flaschenpost', OI076: 'Rotes Glas', OI077: 'Schaufel', OI078: 'Duschkopf', OI079: 'Käse', OI080: 'Gräte',
   OI081: '5 Münzen', OI082: '10 Münzen', OI083: '20 Münzen',

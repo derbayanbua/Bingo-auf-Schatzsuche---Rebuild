@@ -3,7 +3,7 @@
 // position. Backdrops are drawn procedurally (own artwork).
 
 import raw from '../data/scenes.json';
-import { itemSVG, portraitSVG } from '../ui/art';
+import { itemName, itemSVG, portraitSVG } from '../ui/art';
 import { registerScene, getScene, type SceneCtx, type SceneDef, type SceneObject } from './engine';
 import { sceneTheme, sceneTitle, type Theme } from './meta';
 
@@ -29,9 +29,10 @@ const LABELS: Record<string, string> = {
 function niceLabel(o: RawObj): string {
   const base = LABELS[o.label] ?? o.label;
   switch (o.kind) {
-    case 'exit': return /^(Window|Door|Fenster|Tür)$/.test(o.label) ? `Durch ${base === 'Fenster' ? 'das Fenster' : 'die Tür'} gehen` : `Weiter: ${base || 'Ausgang'}`;
+    case 'exit': return /^(Window|Door|Fenster|Tür)$/.test(o.label) ? `Durch ${base === 'Fenster' ? 'das Fenster' : 'die Tür'} gehen` : `Weiter: ${o.to ? sceneTitle(o.to) : base || 'Ausgang'}`;
     case 'game': return `Spiel: ${o.to ? sceneTitle(o.to) : base}`;
     case 'boardExit': return 'Zurück aufs Spielfeld';
+    case 'item': return o.item && /^(OS|OI)\d+$/.test(o.label) ? itemName(o.item) : base || itemName(o.item ?? '');
     default: return base || 'Objekt';
   }
 }

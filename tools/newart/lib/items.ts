@@ -4,7 +4,7 @@
 // distinct shapes/colours so they can be told apart.
 
 import { C, circle, dk, ellipse, g, line, path, poly, r2, rect, rng } from './svg';
-import { coinIcon, jokeCardIcon } from './ui';
+import { coinIcon, jokeCardIcon, star } from './ui';
 
 const O = C.ink;
 const SW = 2.6;
@@ -68,7 +68,8 @@ function mapPiece(n: number): string {
 
 const ICONS: Record<string, () => string> = {
   OI001: () => path('M-8 -26 h16 v6 q14 8 14 26 q0 22 -22 22 q-22 0 -22 -22 q0 -18 14 -26 z', f(C.blue, C.blueDark)) + path('M-17 4 q17 8 34 0', s(C.yellow, 3.5)) + hi('M-10 -8 q-6 10 -4 20'),
-  OI002: () => g({ transform: 'rotate(-35)' }, path('M-24 -9 h34 l10 5 v8 l-10 5 h-34 z', f('#f2f2f6', '#7a7f8c')), rect(20, -5, 8, 10, { rx: 2, ...f('#e8483f') }), path('M-24 -9 l-4 9 l4 9', f('#d6d9e0', '#7a7f8c', 2)), rect(-14, -6, 18, 12, { rx: 2, fill: C.blue })),
+  // admission ticket for the villa party (Eintrittskarte; the butler in AS009-01 wants it)
+  OI002: () => g({ transform: 'rotate(-35)' }, path('M-28 -13 h56 v8 a4 4 0 0 0 0 8 v10 h-56 v-10 a4 4 0 0 0 0 -8 z', f('#cfe8ff', '#2f6fd8')), path('M14 -13 v26', { ...s('#2f6fd8', 1.6), strokeDasharray: '2 2' }), `<text x="-7" y="0" font-family="'Baloo 2'" font-weight="800" font-size="8.5" fill="#1d4fa0" text-anchor="middle" dominant-baseline="central">EINTRITT</text>`, star(21, 0, 4.5, '#ffd23f', '#b58a00', 1.2)),
   OI003: () => ellipse(0, 4, 30, 14, f(C.white, '#8a93a6')) + ellipse(0, 2, 19, 8, { fill: '#e9eef6', stroke: '#b9c2d2', strokeWidth: 1.6 }) + path('M-26 2 q26 10 52 0', s(C.blue, 2)),
   OI004: () => path('M-14 2 h28 l-4 24 h-20 z', f(C.roof, C.roofDark)) + rect(-16, -2, 32, 7, { rx: 2, ...f('#c4533a') }) + path('M0 -2 v-14 M-8 -2 l-4 -10 M8 -2 l5 -10', s(C.grassDark, 2.6)) +
     [[0, -20, C.red], [-12, -14, C.yellow], [12, -14, '#e88fb4']].map(([x, y, c]) => circle(x as number, y as number, 6, f(c as string)) + circle(x as number, y as number, 2.2, { fill: C.yellow })).join(''),
