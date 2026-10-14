@@ -55,7 +55,7 @@ function startGame(scene: OrigScene, ready: () => void): () => void {
   const dynState = () => (scene.state.get('OS16') ?? 'activ').toLowerCase();
   if (scene.stage.has(DYN)) {
     const d = scene.sprite(DYN);
-    scene.off(DYN);
+    // the port's mouseUp below replaces the generic item click of OS16 on the game frame (sceneView)
     d.hot = true;
     d.hitHidden = true;
     d.props.sourceKey = 'OS16';

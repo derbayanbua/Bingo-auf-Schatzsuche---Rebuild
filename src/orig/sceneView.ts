@@ -102,6 +102,8 @@ export interface OrigScene {
   /** go to another AS/GS movie */
   goto(movie: string): void;
   gotoBoard(board: string, pos: number, dir: number): void;
+  /** save and return to the app's main menu */
+  toMainMenu(): void;
   say(text: string): void;
   /** engine object by state key (OH1, OS16, HS2 …) */
   object(key: string): SceneObject | undefined;
@@ -235,6 +237,8 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
   }
   const refreshers = new Set<() => void>();
   const prefSlots = new Map<number, () => string>();
+  /** number of mouseUp handlers a port registered per channel (scene.on) */
+  const portUp = new Map<number, number>();
   /** open box view (frame "Box" overlay), see boxBehavior() */
   let box: { stage: Stage; show(): void; slots: Map<string, Sprite>; close(): void } | null = null;
   let boxAnim = false;
@@ -275,6 +279,11 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
     if (o && !boxB) {
       ends.push(stage.on(sp.ch, 'mouseUp', () => {
         if (busy()) return;
+        // Engine objects belong to frame 1 (sync() only maintains them there). On other frames (game
+        // frames of a GS) a port's own mouseUp on the channel replaces the generic click, so the
+        // item is not handled twice; without a port handler the generic click still works there
+        // (e.g. GS009-01 Haken, GS001-01 map).
+        if (player.frame !== 1 && (portUp.get(sp.ch) ?? 0) > 0) return;
         clickObject(o);
       }));
       sp.cursor = o.kind === 'item' ? 'take' : o.kind === 'exit' || o.kind === 'boardExit' || o.kind === 'game' ? 'walk' : 'make';
@@ -716,8 +725,22 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
     ctx,
     sprite: (ch) => stage.sprite(ch),
     member: (name) => movie.member(name),
-    on: (ch, ev, fn) => stage.on(ch, ev, fn),
-    off: (ch) => stage.off(ch),
+    on: (ch, ev, fn) => {
+      const off = stage.on(ch, ev, fn);
+      if (ev !== 'mouseUp') return off;
+      portUp.set(ch, (portUp.get(ch) ?? 0) + 1);
+      let done = false;
+      return () => {
+        off();
+        if (done) return;
+        done = true;
+        portUp.set(ch, Math.max(0, (portUp.get(ch) ?? 1) - 1));
+      };
+    },
+    off: (ch) => {
+      stage.off(ch);
+      portUp.delete(ch);
+    },
     playSequence: (ch, a, b, fps, opts) => stage.playSequence(ch, a, b, fps, opts),
     onTick: (fn) => {
       const off = stage.onTick(fn);
@@ -827,6 +850,7 @@ export async function mountOrigScene(host: HTMLElement, h: OrigSceneHost): Promi
     },
     goto: (m) => ctx.gotoScene(m.replace(/^[A-Za-z]+_/, '')),
     gotoBoard: (b, p, d) => ctx.gotoBoard(b, p, d),
+    toMainMenu: () => ctx.toMainMenu(),
     say: (t) => ctx.say(t),
     object: (key) => def.objects.find((o) => o.key === key),
     channelOf: (key) => keyToCh.get(key),

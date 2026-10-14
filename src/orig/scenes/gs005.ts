@@ -468,6 +468,7 @@ registerOrigScene('GS005-04', (scene) =>
     let lastDown = 0;
     let armed = false;
     let pendingClose = 0;
+    let takeEvent: Event | null = null;
     scene.on(15, 'mouseDown', (_sp, e) => {
       if (scene.busy || rightHeld) return;
       if (e.button !== 0) return;
@@ -476,6 +477,7 @@ registerOrigScene('GS005-04', (scene) =>
         lastDown = 0;
         clearTimeout(pendingClose);
         armed = false;
+        takeEvent = e; // the press that takes the match must not also arm its release
         return rightMouseDown();
       }
       lastDown = now;
@@ -492,8 +494,8 @@ registerOrigScene('GS005-04', (scene) =>
         }, 420);
       }
     });
-    const downAny = () => {
-      if (rightHeld) armed = true;
+    const downAny = (e: PointerEvent) => {
+      if (rightHeld && e !== takeEvent) armed = true;
     };
     const up = () => {
       if (rightHeld && armed) rightHeld = false;

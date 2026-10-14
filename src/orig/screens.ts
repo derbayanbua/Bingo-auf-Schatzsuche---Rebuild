@@ -21,8 +21,8 @@ export function setChapterHandler(fn: ChapterHandler): void {
 
 /**
  * Start a chapter from scene code (e.g. AS017-02 after the "Reparatur" video: startChapter(2)).
- * Chapter 2 (original Chapter-2 Next.mouseUp): CH1 + CH2 -> AS020-01, both inventories cleared
- * (coins/jokes stay), then the chapter card and AS020-01.
+ * Chapter 2/3 (original Chapter-n Next.mouseUp): chapter card, then CH1 + CH2 -> AS020-01 / AS030-01
+ * with both inventories cleared (coins/jokes stay) – done centrally in app.startChapter.
  */
 export function startChapter(n: 1 | 2 | 3): Promise<void> {
   return chapterHandler ? chapterHandler(n) : Promise.resolve();

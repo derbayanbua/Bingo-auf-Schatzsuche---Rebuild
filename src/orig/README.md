@@ -40,7 +40,7 @@ Files in `src/orig/scenes/` are imported automatically (`scenes/index.ts` uses `
 * Sprites: `sprite(ch)`, `member(name)`, `on(ch, ev, fn)`, `off(ch)`, `playSequence(ch, 'Base-1', 'Base-9', fps, {loop, pendulum})`,
   `onTick(fn)`, `wait(ms)`, `stage`, `movie`, `el`.
 * State/engine: `state.get/set(key, value, screen?)`, `object(key)`, `channelOf(key)`, `sync()`,
-  `goto('AS004-01')`, `gotoBoard('SP004', pos, dir)`, `say(text)` (toast; prefer `talk`), `refresh()` (= showInventar:
+  `goto('AS004-01')`, `gotoBoard('SP004', pos, dir)`, `toMainMenu()` (save + main menu), `say(text)` (toast; prefer `talk`), `refresh()` (= showInventar:
   HUD + save; `ctx.addCoins/addJokes/give` refresh by themselves), `ctx.jumpToCurrent()`, `ctx.showScene(id)`.
 * Hand (sprite 110): `hand`, `putInHand(item, source?)` – source = `{ key, screen?, value?, links? }` (state key set to
   `value`/`activ` on #returnToSource), a function, `'pocket'` (default) or `'lost'`; `consumeHand()` = #stayHere
@@ -58,7 +58,9 @@ Files in `src/orig/scenes/` are imported automatically (`scenes/index.ts` uses `
 * Frames: `frame`, `gotoFrame(n | 'Box' | 'Screen')` (applies that frame's score sprites; channels missing there are removed,
   generic behaviours are re-attached per sprite span), `play({from, to, fps = 15, loop})`, `onEnterFrame(fn)`,
   `onExitFrame(fn)` (a returned Promise pauses `play`), `puppet(ch, on)` (score no longer touches the channel), `player`.
-  Note: engine objects (clicks/visibility of items, SVG layer, a11y buttons) are only active on frame 1.
+  Note: engine objects (visibility of items, SVG layer, a11y buttons) are only maintained on frame 1. On other
+  frames the generic click of an engine object's channel still fires unless the port registered its own
+  `scene.on(ch, 'mouseUp', …)` there (then only the port handles it – no `scene.off` workaround needed).
 
 ### Generic behaviours handled automatically
 Two-State Handling + Two-State Audio (forward/backward/state1/state2/blocked, Blocker → `Global-Unlock`),
@@ -72,7 +74,8 @@ Music/Ambient Controller (on mount). Item pickup/drop plays `OIxxx-Sound` (app.t
 * `talk(member, {movie, mouth?: {stage, ch, frames, show}, speaker, host, mixing})`, `stopTalk()`, `setSubtitles()`, `subtitleFor()` (`voice.ts`).
 * `playVoice / playEffect / playEffectLoop / setAmbient / playMusic / stopMusic / fadeOutAll / setVolumes / unlock` (`sound.ts`).
 * `applyMovieAudio('SP004' | 'AS001-01' | 'Main' | 'Exchange' | 'Chapter-1' …)` (`movieAudio.ts`).
-* `startChapter(2)` (`screens.ts`): chapter card, CH1+CH2 → AS020-01 with empty inventories (coins/jokes stay). The
+* `startChapter(2|3)` (`screens.ts` → `app.startChapter`): chapter card, CH1+CH2 → AS020-01 / AS030-01 with empty
+  inventories (coins/jokes stay) – callers must not change the characters themselves. The
   Reparatur video is played by the AS017-02 port *before* calling it. `chapterScreen(host, n, onNext)`, `introScreen(host)`,
   `menuGreeting()`, `menuButtonTalk(n)`.
 * Board/UI effects (`ui/audio.ts` `sfx.*`): `shake` Becher, `roll` Wurf, `step(g)` Stone/Sand/Dirt/Grass-1..3, `turn(g)` -T,

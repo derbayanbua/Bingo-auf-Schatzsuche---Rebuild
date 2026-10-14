@@ -177,8 +177,9 @@ export class App {
 
   /**
    * Chapter start (Chapter\Chapter-n). Chapter 1 is entered from newGame(); chapters 2/3 from scene
-   * ports via startChapter(n) (src/orig/screens.ts). Chapter 2 (original Chapter-2 Next.mouseUp):
-   * CH1 + CH2 -> AS020-01, both inventories cleared (coins/jokes stay).
+   * ports via startChapter(n) (src/orig/screens.ts). Chapter 2/3 (original Chapter-n Next.mouseUp):
+   * CH1 + CH2 -> AS020-01 / AS030-01, both inventories cleared (coins/jokes stay). This is the only
+   * place doing it, whichever scene starts the chapter.
    */
   async startChapter(n: 1 | 2 | 3) {
     if (n === 1) return this.newGame(true);
@@ -187,16 +188,16 @@ export class App {
     this.returnHand();
     await this.chapterCard(n);
     const g = this.g;
-    if (n === 2) {
-      for (const ch of ['CH1', 'CH2'] as const) {
-        const c = g.chars[ch];
-        c.screen = 'AS020-01';
-        c.position = 0;
-        c.inventory = ['OI000', 'OI000', 'OI000'];
-      }
-      g.currentCharacter = playerChar(g);
+    // Chapter-2/-3 Taster.mouseUp: setCharacterScreen(#CH1/#CH2, first scene) + setInventar(..., "OI000")
+    // for all three pocket slots of both (coins/jokes stay).
+    const first = n === 2 ? 'AS020-01' : 'AS030-01';
+    for (const ch of ['CH1', 'CH2'] as const) {
+      const c = g.chars[ch];
+      c.screen = first;
+      c.position = 0;
+      c.inventory = ['OI000', 'OI000', 'OI000'];
     }
-    // [Prüfung erforderlich] chapter 3 entry is not specified yet: the scene port sets the screens itself
+    g.currentCharacter = playerChar(g);
     this.persist();
     this.enterGame();
   }
@@ -399,11 +400,14 @@ export class App {
     else setTimeout(() => fileInput.remove(), 0);
     if (v === 'help') this.showHelp();
     if (v === 'settings') await this.showSettings();
-    if (v === 'main') {
-      this.persist();
-      this.game = null;
-      this.showMenu();
-    }
+    if (v === 'main') this.toMainMenu();
+  }
+
+  /** save and return to the main menu (also used by scene ports, e.g. after the credits) */
+  toMainMenu() {
+    this.persist();
+    this.game = null;
+    this.showMenu();
   }
 
   // ---------------------------------------------------------------- HUD
@@ -1055,6 +1059,7 @@ export class App {
         self.persist();
         self.showCurrent();
       },
+      toMainMenu: () => self.toMainMenu(),
       showScene: (id) => {
         self.renderScene(id);
         self.renderTop();

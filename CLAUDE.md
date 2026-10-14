@@ -91,16 +91,34 @@ Fertig (Meilenstein 1):
   Spiel-Voraussetzungen (`prefSlot`), Szenen-API `putInHand/returnHand/refresh` (siehe `src/orig/README.md`). Abweichung: Witzkarte aus dem
   Witzomaten geht nicht verloren, wenn sie woanders abgelegt wird (landet auf dem Witzstapel).
 
-Offen / nächste Schritte (Priorität):
-1. Szenenspezifische Lingo-Logik portieren (Liste: `custom` je Szene in `src/data/scenes.json`; Details `analysis/STORY_scenes.md` §2). Kapitel 1 zuerst: AS004-02 (Alfred/Arnold/Reeling), AS009-01/02/04, AS011-01, AS012-01, Leuchtturm AS005-xx, AS017-01/02 → Kapitel 2.
-2. Minispiele GS001-01 (Puzzle), GS016-01 (Angeln), GS008-01 (Café), GS009-01/02, GS005-xx, dann Kapitel 2/3.
-3. Pocket (Hosentaschen aller Figuren), Tipps (5 Münzen; Texte neu formulieren, nicht Originaltexte übernehmen).
-4. Story-„Videos“ (Smacker) durch eigene Bildfolgen/Texte ersetzen.
-5. Musik/Sprache (eigene Produktion nötig).
+Fertig (Meilenstein 2, mit Originaldaten in `public/orig`):
+* Alle Kapitel portiert (`src/orig/scenes/*`): Kapitel 1 (Haus, Villa, Strand, Kneipe, Leuchtturm, Wrack), Kapitel 2 (Schiff),
+  Kapitel 3 (Schatzinsel bis Schatzhalle), Ende AS050-xx, Abspann AS060-01 → danach automatisch Hauptmenü (`scene.toMainMenu()`).
+* Kapitelwechsel zentral in `app.startChapter(n)`: Kapitelkarte, CH1+CH2 → AS020-01 bzw. AS030-01, Taschen leer (Münzen/Witze bleiben) –
+  wie `Chapter\Chapter-2/3` (Taster.mouseUp); Szenen-Ports rufen nur `startChapter(n)` auf.
+* Generischer Klick auf ein Engine-Objekt feuert auf Nicht-Frame-1 (Spiel-Frames) nicht mehr, wenn der Port selbst einen
+  `mouseUp`-Handler auf dem Kanal registriert hat (kein Doppel-Handling; `scene.off`-Workarounds entfernt).
+* Gesamttest 10/2026 (Produktionsbuild, synthetische Events): Neues Spiel → Intro → Kapitel 1 komplett → Kapitel 2 → Kapitel 3 →
+  Abspann → Hauptmenü. Per UI gespielt: GS001-01, GS005-01/02/03/04/05, GS008-01, GS009-01/02, GS016-01, GS020-01/02/05/06,
+  GS032-01/02, GS042-01, GS044-01/02, GS050-01/02 und alle Quest-Aktionen. Brett (Würfeln, NPC-Züge, Rocco stiehlt/verkauft,
+  Tauschen in allen Launen-Modi, Witzkarten, Hindernisse, Brett-Browsing in alle 4 Richtungen, Bingo/Puck-Wechsel),
+  Gegenstände (Drag&Drop, Tippen-Tippen, Zurücklegen, Geben, Kisten), Spielstand (Download, Löschen, Import, Weiterspielen,
+  ungültige Datei abgelehnt), Fallback ohne `public/orig` (Menü/Brett/Szenen), Smartphone hoch/quer.
+  Nicht per UI gewonnen: GS005-06 (Tauchen) und GS020-04 (Segeln; Autopilot schaffte Teile von Screen 1) – Fortsetzung über
+  Spielstand bzw. `startChapter(3)` (gleicher Codepfad wie nach dem Sieg) geprüft.
+
+Offen / nächste Schritte:
+1. Ohne Originaldaten (Vektoransicht) fehlen die Szenen-Ports: Quest-Logik/Kapitelwechsel nur generisch, Minispiele sind Platzhalter
+   (Kapitel 2/3 ohne Originale nicht erreichbar).
+2. Tipps (5 Münzen; eigene Texte), Story-„Videos“ ohne Originale durch eigene Bildfolgen ersetzen, eigene Musik/Sprache.
+3. Ins Spielfeld verschobene Statusleisten-Knöpfe (Taster 109, Pfeiltasten, Lexikon …) skalieren mit der Szene: auf Smartphones
+   klein (~30 px); GS042-01-Pfeilfeld liegt über der linken unteren Uferecke (unkritisch).
 
 Bekannte Abweichungen / Fehler:
-* Szenen mit noch nicht portierter Speziallogik zeigen den `[Prüfung erforderlich]`-Hinweis (nicht bei registrierten Ports / rein generischen Szenen).
-* Minispiele ohne Port sind Platzhalter (nur Zurück-Knopf).
+* Mit Originaldaten: `[Prüfung erforderlich]`-Stellen in den Ports (Kommentare) sind Best-Guess-Rekonstruktionen.
+* GS005-04: Streichholz wird per Doppelklick/-tippen genommen und bis zum nächsten Druck gehalten (Original: rechte Maustaste).
+* Gegenstände in Vorbereitungsplätzen (z. B. OI040 in GS005-06, OI065 in GS042-01) bleiben nach dem Spiel dort liegen
+  [Prüfung erforderlich: Verhalten des Originals].
 * Ohne Originalgrafik (Vektoransicht) nimmt ein Klick auf die Kiste den ersten Gegenstand heraus bzw. legt den gehaltenen in den ersten freien Platz.
 * Figurennamen CH3/5/6/8 unbekannt.
 

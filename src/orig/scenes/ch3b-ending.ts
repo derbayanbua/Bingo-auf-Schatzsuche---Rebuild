@@ -235,28 +235,10 @@ registerOrigScene('AS060-01', (scene) => {
     if (now < endAt) return;
     done = true;
     scene.state.set('DONE', 'yes');
-    toMainMenu();
+    scene.toMainMenu();
   });
   return () => {
     outtake?.pause();
     outtake = null;
   };
 });
-
-/**
- * Back to the main menu. The scene API has no hook for it (see the final report): use the app's own
- * menu ("☰" -> "Hauptmenü"); fall back to a reload, which also opens the main menu.
- */
-function toMainMenu() {
-  const btn = document.querySelector<HTMLButtonElement>('button.icon-btn[aria-label="Menü"]');
-  if (!btn) return location.reload();
-  btn.click();
-  const t0 = performance.now();
-  const find = () => {
-    const b = [...document.querySelectorAll<HTMLButtonElement>('dialog button, .dialog button, button')].find((x) => x.textContent?.includes('Hauptmenü'));
-    if (b) return b.click();
-    if (performance.now() - t0 > 2000) return location.reload();
-    setTimeout(find, 50);
-  };
-  setTimeout(find, 0);
-}

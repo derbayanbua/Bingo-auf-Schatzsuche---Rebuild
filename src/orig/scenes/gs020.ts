@@ -698,7 +698,9 @@ registerOrigScene('GS020-02', (scene) =>
 registerOrigScene('GS020-04', (scene) =>
   gameScreen(scene, { back: 'AS020-04', start: 'Screen-1' }, (ctl) => {
     const SHIP = 35, WIND = 50, CRASH = 9;
-    const keys = arrowKeys(scene, { left: [540, 372], right: [622, 372] });
+    // top right: the bottom right corner holds the start point + first passage of Screen-3
+    // (ship 599,474 / passage 21 596,443), the left side the compass and rocks
+    const keys = arrowKeys(scene, { left: [632, 8], right: [714, 8] });
     const shipNames: string[] = [];
     for (let i = 0; i < 72; i++) shipNames.push(`Schiff-${i}`);
     preloadMasks(scene, [...shipNames, 'Crash-1', 'Crash-2', 'Crash-3']);
@@ -804,13 +806,7 @@ registerOrigScene('GS020-04', (scene) =>
       ended = true;
       running = false;
       await scene.playSmacker('Ankunft');
-      // Chapter-3 card; Taster (Chapter-3): CH1 + CH2 -> AS030-01, inventories cleared
-      const s = scene.ctx.s;
-      for (const ch of ['CH1', 'CH2'] as const) {
-        s.chars[ch].screen = 'AS030-01';
-        s.chars[ch].position = 0;
-        s.chars[ch].inventory = ['OI000', 'OI000', 'OI000'];
-      }
+      // Chapter-3 card; Taster (Chapter-3): CH1 + CH2 -> AS030-01, inventories cleared (app.startChapter)
       await startChapter(3);
     };
 
@@ -1144,8 +1140,7 @@ registerOrigScene('GS020-06', (scene) =>
     });
     for (const ch of LAPPEN) {
       const sp = scene.sprite(ch);
-      // the generic item click of the engine object OS<ch> is replaced by the port (no double handling)
-      scene.off(ch);
+      // the port's mouseUp replaces the generic item click of OS<ch> on the game frame (sceneView)
       scene.on(ch, 'mouseDown', () => {
         if (scene.busy || scene.hand || !knife.visible) return;
         void scene.sound('Stoff-1', 100);

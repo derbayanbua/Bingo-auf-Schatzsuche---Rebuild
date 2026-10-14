@@ -45,6 +45,8 @@ export interface SceneCtx {
   jumpToCurrent(): void;
   /** show another AS/GS movie without setCharacterScreen (gTargetMovie only) */
   showScene(id: string): void;
+  /** save and leave the game screen for the main menu */
+  toMainMenu(): void;
   /** current character (CH1/CH2) */
   ch: CharId;
   gotoScene(id: string): void;
