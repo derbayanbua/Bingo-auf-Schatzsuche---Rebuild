@@ -13,7 +13,7 @@
 // Board coordinates are stage coordinates (the original point data uses them: y = 70..445).
 
 import type { CharId } from '../game/types';
-import { gfxIndex, gfxUrl, hasOriginalGfx } from './gfx';
+import { gfxIndex, gfxUrl, hasMovieArt, hasOriginalGfx } from './gfx';
 import { loadMovie, preload, type Behavior, type ScoreSprite } from './stage';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -53,9 +53,12 @@ export function mem(dir: string, name: string): Mem | null {
   return res;
 }
 
-/** true if the original Landscape movie of this board is installed */
+/**
+ * true if the Landscape movie of this board can be drawn with the active sprite pack (originals, or a
+ * board the new art pack covers completely – other boards keep the vector board instead of placeholders)
+ */
 export function hasOrigBoard(board: string): boolean {
-  return hasOriginalGfx() && !!mem(`Landscape_${board}`, `${board}-Board`);
+  return hasOriginalGfx() && !!mem(`Landscape_${board}`, `${board}-Board`) && hasMovieArt(board);
 }
 
 function imageTag(m: Mem, x: number, y: number, extra = ''): string {

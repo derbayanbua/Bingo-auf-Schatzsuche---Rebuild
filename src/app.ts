@@ -9,7 +9,7 @@ import { makeRng } from './game/rng';
 import type { CharId, GameEvent, GameState } from './game/types';
 import { NPCS } from './game/types';
 import { getScene, defaultClick, defaultUse, isDropSpot, isVisible, objState, type HandSource, type SceneCtx, type SceneDef, type SceneObject } from './scenes/engine';
-import { hasOriginalGfx } from './orig/gfx';
+import { gfxPack, hasMovieArt, hasOrigGfxInstalled, hasOriginalGfx, preferredGfxPack, setPreferredGfxPack } from './orig/gfx';
 import { hasOriginals } from './orig/assets';
 import { hasSmacker, playSmacker } from './orig/media';
 import { applyMovieAudio } from './orig/movieAudio';
@@ -140,7 +140,7 @@ export class App {
       h('div', { class: 'menu-sky', 'aria-hidden': 'true' }, ...Array.from({ length: 14 }, (_, i) => h('span', { class: 'bubble-dot', style: `--i:${i}` }))),
       h('div', { class: 'menu-card' },
         h('div', { class: 'menu-heroes', 'aria-hidden': 'true' }, fromSVG(portraitSVG('CH1')), fromSVG(portraitSVG('CH2'))),
-        h('h1', {}, 'Bingo ', h('span', {}, 'auf Schatzsuche')),
+        h('h1', {}, 'Bongo ', h('span', {}, 'auf Schatzsuche')),
         h('p', { class: 'tagline' }, 'Das Brett- und Abenteuerspiel – neu für den Browser'),
         hasOriginals() ? null : pocNotice(),
         h('div', { class: 'menu-buttons' },
@@ -151,7 +151,7 @@ export class App {
           fileInput,
           h('button', { class: 'btn', 'data-talk': '2', onclick: () => this.showHelp() }, '❓ Spielanleitung'),
           h('button', { class: 'btn', 'data-talk': '4', onclick: () => void this.showSettings() }, '⚙ Einstellungen'),
-          hasOriginalGfx() ? h('button', { class: 'btn', 'data-talk': '3', onclick: () => void this.showIntro() }, '🎬 Intro ansehen') : null,
+          hasMovieArt('Intro') ? h('button', { class: 'btn', 'data-talk': '3', onclick: () => void this.showIntro() }, '🎬 Intro ansehen') : null,
           h('button', { class: 'btn', 'data-talk': '3', onclick: () => this.showAbout() }, 'ℹ Über dieses Spiel'),
         ),
         auto ? h('p', { class: 'small' }, 'Dein Fortschritt wird automatisch in diesem Browser gespeichert. Das ist nicht dauerhaft garantiert – lade den Spielstand zur Sicherheit herunter.') : null,
@@ -217,7 +217,7 @@ export class App {
     // original: Chapter-1 card -> Next -> playSmacker("Intro", 1) -> AS001-01
     const withVideo = hasSmacker('Intro');
     await this.chapterCard(1, withVideo ? () => playSmacker('Intro') : undefined);
-    if (!withVideo) await this.storyCard('Intro', 'Bingo und Puck finden eine Flaschenpost – darin steckt ein Hinweis auf einen verschollenen Schatz! Doch zuerst müssen die beiden aus dem Haus …');
+    if (!withVideo) await this.storyCard('Intro', 'Bongo und Pucki finden eine Flaschenpost – darin steckt ein Hinweis auf einen verschollenen Schatz! Doch zuerst müssen die beiden aus dem Haus …');
     this.enterGame();
   }
 
@@ -254,16 +254,16 @@ export class App {
 
   private showHelp() {
     void dialog('Spielanleitung', h('div', { class: 'help' },
-      h('p', {}, 'Bingo und Puck suchen einen Schatz. Gespielt wird auf Inselbrettern und in Abenteuer-Szenen.'),
+      h('p', {}, 'Bongo und Pucki suchen einen Schatz. Gespielt wird auf Inselbrettern und in Abenteuer-Szenen.'),
       h('ul', {},
         h('li', {}, '🎲 Tippe auf den Würfelbecher: Es wird mit zwei Würfeln gewürfelt (2–12). Alle Felder, die du in höchstens so vielen Schritten erreichst, leuchten auf. Tippe ein leuchtendes Feld an.'),
         h('li', {}, '⏭ Ist schon gewürfelt, setzt ein erneuter Tipp auf den Becher aus.'),
         h('li', {}, '⭐ Rote Sternfelder führen in Abenteuer-Szenen oder Spiele.'),
         h('li', {}, '😄 Witzfelder: Wer darüber läuft, bekommt einen Witz. Andere Figuren werden dadurch besser gelaunt. Aus deinem Witz-Stapel kannst du Witzkarten auf blaue Felder legen.'),
         h('li', {}, '🤝 Steht eine Figur direkt neben dir, kannst du sie antippen und mit ihr tauschen. Ihre Laune entscheidet: schlecht = sie will Münzen, neutral = tauschen, gut = sie schenkt dir etwas.'),
-        h('li', {}, '🏴‍☠️ Vorsicht vor Rocco! Er stiehlt Gegenstände aus der Hosentasche und verkauft sie an andere Figuren.'),
+        h('li', {}, '🏴‍☠️ Vorsicht vor Rocko! Er stiehlt Gegenstände aus der Hosentasche und verkauft sie an andere Figuren.'),
         h('li', {}, '👆 Gegenstände: Tippe einen Gegenstand in der Hosentasche an, dann das Ziel (Figur, Feld, Objekt in der Szene). Erneut antippen oder Esc legt ihn zurück.'),
-        h('li', {}, '⇄ Über die Figuren-Knöpfe wechselst du jederzeit zwischen Bingo und Puck.'),
+        h('li', {}, '⇄ Über die Figuren-Knöpfe wechselst du jederzeit zwischen Bongo und Pucki.'),
         h('li', {}, '⌨ Tastatur: Leertaste = würfeln, Pfeiltasten = Nachbarbrett ansehen, Esc = Gegenstand zurücklegen.'),
       )), [{ label: 'Los geht’s', value: 'ok', primary: true }]);
   }
@@ -291,15 +291,22 @@ export class App {
     const orig = hasOriginals();
     const turbo = h('input', { type: 'checkbox', ...(s.turboJump ? { checked: true } : {}), onchange: (e: Event) => { s.turboJump = (e.target as HTMLInputElement).checked; } });
     const subs = h('input', { type: 'checkbox', ...(s.subtitles ? { checked: true } : {}), onchange: (e: Event) => { s.subtitles = (e.target as HTMLInputElement).checked; this.applySettings(); } });
+    // graphics pack: only offered when the originals are installed (stored per browser, applied by a reload)
+    const wasOrigGfx = preferredGfxPack() === 'orig';
+    const origGfx = hasOrigGfxInstalled()
+      ? h('input', { type: 'checkbox', ...(wasOrigGfx ? { checked: true } : {}), onchange: (e: Event) => setPreferredGfxPack((e.target as HTMLInputElement).checked ? 'orig' : 'new') })
+      : null;
     await dialog('Einstellungen', h('div', { class: 'settings' },
       row('Effekte', 'effectVolume'),
       row(orig ? 'Sprache' : 'Sprache (nur mit Originaldateien)', 'voiceVolume'),
       row(orig ? 'Musik' : 'Musik (nur mit Originaldateien)', 'musicVolume'),
       h('label', { class: 'setting check' }, subs, ' Untertitel für Sprache'),
       h('label', { class: 'setting check' }, turbo, ' Turbo-Sprung (schnellere Figuren, Taste T)'),
+      origGfx ? h('label', { class: 'setting check' }, origGfx, ' Originalgrafik verwenden (sonst neue Grafik; lädt die Seite neu)') : null,
     ), [{ label: 'Fertig', value: 'ok', primary: true }]);
     storeSettings(s);
     if (this.game) this.persist();
+    if (origGfx && (preferredGfxPack() === 'orig') !== wasOrigGfx) window.location.reload();
   }
 
   /** Chapter card: original Chapter-n screen when installed (onNext runs before it closes), else a dialog */
@@ -941,8 +948,8 @@ export class App {
     const name = (c: CharId) => LOOKS[c].name;
     if (e.type === 'joke' && (e.ch === 'CH1' || e.ch === 'CH2')) toast(`${name(e.ch)} hat einen Witz gefunden! 😄`, 'good');
     if (e.type === 'joke' && /CH[3-8]/.test(e.ch) && e.point.startsWith(this.viewBoard)) toast(`${name(e.ch)} lacht über einen Witz und ist besser gelaunt.`, 'info');
-    if (e.type === 'steal') { sfx.steal(); toast(`Rocco hat ${name(e.from)} ${itemName(e.item)} geklaut!`, 'bad', 4000); }
-    if (e.type === 'sell') toast(`Rocco hat ${itemName(e.item)} an ${name(e.to)} verkauft.`, 'info', 3500);
+    if (e.type === 'steal') { sfx.steal(); toast(`${name('CH9')} hat ${name(e.from)} ${itemName(e.item)} geklaut!`, 'bad', 4000); }
+    if (e.type === 'sell') toast(`${name('CH9')} hat ${itemName(e.item)} an ${name(e.to)} verkauft.`, 'info', 3500);
   }
 
   /** NPC turns CH3..CH9, then back to the player (nextCharacter loop). */
@@ -1304,8 +1311,11 @@ const RELEASES_URL = `${REPO_URL}/releases/latest`;
 function pocNotice(): HTMLElement {
   return h('div', { class: 'poc-notice', role: 'note' },
     h('strong', {}, '⚠ Technische Demo (Proof of Concept)'),
-    h('p', {}, 'Diese Web-Version zeigt nur technisch, dass das Spiel in ein modernes Browser-System migriert wurde. ' +
-      'Grafiken sind Platzhalter, Filme, Musik und Stimmen fehlen, und die Minispiele sind nicht spielbar – Kapitel 2 und 3 sind daher nicht erreichbar.'),
+    gfxPack() === 'new'
+      ? h('p', {}, 'Diese Web-Version wird gerade mit eigener, neu gezeichneter Grafik aufgebaut. ' +
+        'Noch nicht gezeichnete Bilder erscheinen als graue Platzhalter; Filme, Musik und Stimmen fehlen noch.')
+      : h('p', {}, 'Diese Web-Version zeigt nur technisch, dass das Spiel in ein modernes Browser-System migriert wurde. ' +
+        'Grafiken sind Platzhalter, Filme, Musik und Stimmen fehlen, und die Minispiele sind nicht spielbar – Kapitel 2 und 3 sind daher nicht erreichbar.'),
     h('p', {}, 'Für das vollwertige Erlebnis mit Originalgrafik, Filmen und Sprachausgabe: Spiel herunterladen und mit den Dateien ',
       h('b', {}, 'deiner eigenen Original-CD'), ' anreichern.'),
     h('p', { class: 'poc-links' },

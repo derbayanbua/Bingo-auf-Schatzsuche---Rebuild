@@ -3,8 +3,8 @@
 export type Theme = 'house' | 'outdoor' | 'pub' | 'lighthouse' | 'cellar' | 'villa' | 'beach' | 'sea' | 'ship' | 'cabin' | 'jungle' | 'desert' | 'cave' | 'treasure' | 'game';
 
 export const SCENE_META: Record<string, [string, Theme]> = {
-  'AS001-01': ['Bingos Haus – Stube', 'house'],
-  'AS001-02': ['Vor Bingos Haus', 'outdoor'],
+  'AS001-01': ['Bongos Haus – Stube', 'house'],
+  'AS001-02': ['Vor Bongos Haus', 'outdoor'],
   'AS004-01': ['Vor der Hafenkneipe', 'outdoor'],
   'AS004-02': ['Hafenkneipe', 'pub'],
   'AS005-02': ['Leuchtturm – außen', 'outdoor'],
@@ -34,11 +34,11 @@ export const SCENE_META: Record<string, [string, Theme]> = {
   'AS020-06': ['Kapitänskajüte', 'cabin'],
   'AS020-07': ['Kombüse', 'cabin'],
   'AS020-09': ['Lagerraum', 'cabin'],
-  'AS020-10': ['Magnus’ Kammer', 'cabin'],
+  'AS020-10': ['Mats’ Kammer', 'cabin'],
   'AS020-11': ['Bug mit Segel', 'ship'],
   'AS020-12': ['Ausguck', 'ship'],
   'AS030-01': ['Ankunft auf der Schatzinsel', 'beach'],
-  'AS030-02': ['Am Strand mit Rocco', 'beach'],
+  'AS030-02': ['Am Strand mit Rocko', 'beach'],
   'AS030-03': ['Am Strand', 'beach'],
   'AS030-04': ['Landeplatz', 'jungle'],
   'AS031-01': ['Großer Baum', 'jungle'],
@@ -104,7 +104,7 @@ export function sceneTheme(id: string): Theme {
 }
 
 export const CHAPTER_TEXT: Record<1 | 2 | 3, string> = {
-  1: 'Die Heimatinsel. Bingo und Puck brauchen eine Seekarte, einen Kapitän und ein Schiff – und dafür viele gute Ideen.',
-  2: 'An Bord! Auf dem Schiff von Kapitän Reeling gibt es jede Menge zu tun, bevor Land in Sicht kommt.',
+  1: 'Die Heimatinsel. Bongo und Pucki brauchen eine Seekarte, einen Kapitän und ein Schiff – und dafür viele gute Ideen.',
+  2: 'An Bord! Auf dem Schiff von Käpt’n Reling gibt es jede Menge zu tun, bevor Land in Sicht kommt.',
   3: 'Die Schatzinsel. Irgendwo hinter Urwald, Wüste und Wasserfall wartet der verlorene Schatz.',
 };

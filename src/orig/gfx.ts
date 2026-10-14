@@ -1,29 +1,110 @@
-// Optional original graphics (private use). Exported by tools/export_graphics.py into
-// public/orig/gfx/ (gitignored). Everything here degrades gracefully: without the folder
-// hasOriginalGfx() is false and the game uses its own vector art.
+// Sprite graphics for the Director-like runtime (stage.ts, boardOrig.ts, sceneView.ts …). Two packs share
+// the same layout (index.json: [w,h,regX,regY,name] per member, score/<Dir>_<Movie>.json):
+//   * public/assets/gfx/ – the game's own "neue Grafik" (tools/newart, committed, publishable)
+//   * public/orig/gfx/   – the original bitmaps (tools/export_graphics.py, gitignored, private use only)
+// The originals are used when installed and the setting "Originalgrafik verwenden" is on (default);
+// otherwise the new pack. Without either, hasOriginalGfx() is false and the game uses its vector view.
 
 /** [w, h, regX, regY, name] per member number */
 export type MemberInfo = [number, number, number, number, string];
 export type GfxIndex = Record<string, Record<string, MemberInfo>>;
+export type GfxPack = 'orig' | 'new';
 
-const BASE = `${import.meta.env?.BASE_URL ?? './'}orig/gfx/`.replace(/\/\/+/g, '/');
+const ROOT = `${import.meta.env?.BASE_URL ?? './'}`;
+const PACK_BASE: Record<GfxPack, string> = {
+  orig: `${ROOT}orig/gfx/`.replace(/\/\/+/g, '/'),
+  new: `${ROOT}assets/gfx/`.replace(/\/\/+/g, '/'),
+};
+const PREF_KEY = 'bingo-schatzsuche.gfxPack';
+
 let index: GfxIndex | null = null;
+let pack: GfxPack | null = null;
+let origInstalled = false;
+/** new pack: members with art per movie dir ([art, total]) – movies without full coverage show placeholders */
+let coverage: Record<string, [number, number]> | null = null;
 let loading: Promise<GfxIndex | null> | null = null;
 
-/** Fetch gfx/index.json once (null if the originals are not installed). */
+async function fetchJson<T>(url: string): Promise<T | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok || !(r.headers.get('content-type') ?? '').includes('json')) return null;
+    const j = (await r.json()) as T;
+    return j && typeof j === 'object' ? j : null;
+  } catch {
+    return null;
+  }
+}
+
+/** user preference: 'orig' (default, only effective when installed) or 'new' */
+export function preferredGfxPack(): GfxPack {
+  try {
+    return localStorage.getItem(PREF_KEY) === 'new' ? 'new' : 'orig';
+  } catch {
+    return 'orig';
+  }
+}
+
+/** store the preference (takes effect after a reload – caches and running stages keep their pack) */
+export function setPreferredGfxPack(p: GfxPack): void {
+  try {
+    localStorage.setItem(PREF_KEY, p);
+  } catch {
+    /* private mode: ignore */
+  }
+}
+
+/** Fetch the index of the active pack once (null if no pack is available). */
 export function loadGfxIndex(): Promise<GfxIndex | null> {
   if (index) return Promise.resolve(index);
   if (!loading) {
-    loading = (typeof fetch === 'function' ? fetch(BASE + 'index.json') : Promise.reject(new Error('no fetch')))
-      .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : null))
-      .then((j: GfxIndex | null) => (index = j && typeof j === 'object' ? j : null))
-      .catch(() => null);
+    loading = (async () => {
+      if (typeof fetch !== 'function') return null;
+      const orig = await fetchJson<GfxIndex>(PACK_BASE.orig + 'index.json');
+      origInstalled = !!orig;
+      if (orig && preferredGfxPack() === 'orig') {
+        pack = 'orig';
+        return (index = orig);
+      }
+      const [n, cov] = await Promise.all([fetchJson<GfxIndex>(PACK_BASE.new + 'index.json'), fetchJson<Record<string, [number, number]>>(PACK_BASE.new + 'coverage.json')]);
+      if (n) {
+        pack = 'new';
+        coverage = cov;
+        return (index = n);
+      }
+      if (orig) {
+        pack = 'orig';
+        return (index = orig);
+      }
+      return null;
+    })();
   }
   return loading;
 }
 
+/** true when a sprite pack (original or new) is active – the sprite runtime is used then */
 export function hasOriginalGfx(): boolean {
   return !!index;
+}
+
+/** active pack ('orig' | 'new') or null */
+export function gfxPack(): GfxPack | null {
+  return pack;
+}
+
+/** the original graphics are installed (public/orig/gfx) – whether active or not */
+export function hasOrigGfxInstalled(): boolean {
+  return origInstalled;
+}
+
+/**
+ * true if a movie can be shown completely with the active pack (originals: always; new pack: every
+ * member of the movie has new art). Used for optional full screens (chapter cards, intro).
+ */
+export function hasMovieArt(id: string): boolean {
+  if (!index) return false;
+  if (pack === 'orig') return true;
+  const c = coverage?.[movieDir(id)];
+  return !!c && c[0] >= c[1] && c[1] > 0;
 }
 
 export function gfxIndex(): GfxIndex | null {
@@ -32,11 +113,11 @@ export function gfxIndex(): GfxIndex | null {
 
 /** URL of a member bitmap (no existence check). */
 export function gfxUrl(dir: string, member: number): string {
-  return `${BASE}${dir}/${member}.webp`;
+  return `${gfxBase()}${dir}/${member}.webp`;
 }
 
 export function gfxBase(): string {
-  return BASE;
+  return PACK_BASE[pack ?? 'orig'];
 }
 
 /** 'AS001-01' -> 'Adventure_AS001-01', 'GS016-01' -> 'Game_GS016-01', 'SP001' -> 'Landscape_SP001'. */
@@ -53,7 +134,7 @@ export function movieDir(id: string): string {
 
 let inventarByName: Map<string, number> | null = null;
 
-/** Original inventory icon (Shared_Inventar OIxxx) or null. */
+/** Inventory icon of the active pack (Shared_Inventar OIxxx) or null. */
 export function itemImageUrl(id: string): string | null {
   if (!index || id === 'OI000') return null;
   if (!inventarByName) {

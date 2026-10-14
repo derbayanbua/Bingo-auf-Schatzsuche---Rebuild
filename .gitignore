@@ -1,6 +1,7 @@
 node_modules/
 dist/
 public/orig/
+public/orig.off/
 /orig/
 tools/.cache/
 __pycache__/

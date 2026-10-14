@@ -8,10 +8,22 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "art": "tsx tools/newart/render.ts",
+    "art:report": "tsx tools/newart/report.ts",
+    "art:sync": "tsx tools/newart/sync.ts",
+    "art:frame": "tsx tools/newart/preview.ts frame",
+    "art:sheet": "tsx tools/newart/preview.ts sheet",
+    "art:typecheck": "tsc -p tools/newart/tsconfig.json"
   },
   "devDependencies": {
+    "@expo-google-fonts/baloo-2": "^0.4.2",
+    "@expo-google-fonts/nunito": "^0.4.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^22.20.5",
     "jsdom": "^25.0.1",
+    "sharp": "^0.35.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
     "vitest": "^2.1.9"

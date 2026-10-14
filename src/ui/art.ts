@@ -1,7 +1,9 @@
-// Original vector artwork for the remake (no original bitmaps are shipped).
-// Character designs follow the published look: Bingo = yellow block with orange hair and a green shoe,
-// Puck = yellow ball with a blue shoe.
+// The game's own vector artwork (used without a sprite pack and for menus/dialogs).
+// Character designs = approved character sheet of the rebuild ("neue Grafik", tools/newart):
+// Bongo = orange block with a blue white-dotted bandana and brown boots, Pucki = mint-green ball with
+// a curl, freckles and yellow sneakers; NPCs Käpt'n Reling, Alfons, Mats, Bert, Arno, Tom, Rocko.
 
+import { DISPLAY_NAMES } from '../game/names';
 import type { CharId } from '../game/types';
 import { itemImageUrl } from '../orig/gfx';
 
@@ -10,88 +12,128 @@ export interface CharLook {
   body: string;
   accent: string;
   shape: 'block' | 'ball' | 'round';
-  hat?: 'pirate' | 'cook' | 'cap' | 'captain';
+  hat?: 'pirate' | 'cook' | 'knit' | 'captain' | 'sailor' | 'band' | 'stripes';
 }
 
-/** Names proven by the original Landscape scores (pCharacterID of the "Character im Schauplatz" sprites 51-59:
- *  CH3 JmpReeling, CH4 JmpAlfred, CH5 JmpMagnus, CH6 JmpBen, CH7 JmpArnold, CH8 JmpTim, CH9 JmpRocco). */
+/** CHn ids as in the original data (Landscape scores: CH3 JmpReeling, CH4 JmpAlfred, CH5 JmpMagnus,
+ *  CH6 JmpBen, CH7 JmpArnold, CH8 JmpTim, CH9 JmpRocco) with the rebuild's own names (game/names.ts). */
 export const LOOKS: Record<CharId, CharLook> = {
-  CH1: { name: 'Bingo', body: '#f7c531', accent: '#3aa845', shape: 'block' },
-  CH2: { name: 'Puck', body: '#f9d648', accent: '#2f73d8', shape: 'ball' },
-  CH3: { name: 'Reeling', body: '#9b7fd1', accent: '#5b3fa0', shape: 'round' },
-  CH4: { name: 'Alfred', body: '#f2f2f2', accent: '#d9534f', shape: 'round', hat: 'cook' },
-  CH5: { name: 'Magnus', body: '#58b7c9', accent: '#1d6f82', shape: 'round', hat: 'cap' },
-  CH6: { name: 'Ben', body: '#e88fb4', accent: '#a2346a', shape: 'round' },
-  CH7: { name: 'Arnold', body: '#e8964a', accent: '#8a4a12', shape: 'round' },
-  CH8: { name: 'Tim', body: '#8fcf6b', accent: '#3d7d22', shape: 'round', hat: 'captain' },
-  CH9: { name: 'Rocco', body: '#5b5f6b', accent: '#c0392b', shape: 'round', hat: 'pirate' },
+  CH1: { name: DISPLAY_NAMES.Bingo, body: '#ff9447', accent: '#8a5428', shape: 'block' },
+  CH2: { name: DISPLAY_NAMES.Puck, body: '#7ed6a5', accent: '#ffd23f', shape: 'ball' },
+  CH3: { name: DISPLAY_NAMES.Reeling, body: '#2e4c8a', accent: '#16264a', shape: 'round', hat: 'captain' },
+  CH4: { name: DISPLAY_NAMES.Alfred, body: '#f4f4f4', accent: '#8f8a9e', shape: 'round', hat: 'cook' },
+  CH5: { name: DISPLAY_NAMES.Magnus, body: '#8fcf6b', accent: '#3d7d22', shape: 'round', hat: 'knit' },
+  CH6: { name: DISPLAY_NAMES.Ben, body: '#e88fb4', accent: '#a2346a', shape: 'round', hat: 'stripes' },
+  CH7: { name: DISPLAY_NAMES.Arnold, body: '#e8964a', accent: '#8a4a12', shape: 'round', hat: 'band' },
+  CH8: { name: DISPLAY_NAMES.Tim, body: '#58b7c9', accent: '#1d6f82', shape: 'round', hat: 'sailor' },
+  CH9: { name: DISPLAY_NAMES.Rocco, body: '#5b5f6b', accent: '#2a2c33', shape: 'round', hat: 'pirate' },
 };
 
 export function setLookName(ch: CharId, name: string) {
   LOOKS[ch].name = name;
 }
 
-/** Top-down-ish board token, centred on 0,0, facing up (rotate the group for direction). */
-export function tokenSVG(ch: CharId): string {
-  const l = LOOKS[ch];
-  const body =
-    l.shape === 'block'
-      ? `<rect x="-15" y="-17" width="30" height="34" rx="8" fill="${l.body}" stroke="#7a5a00" stroke-width="2"/>
-         <path d="M-6 -17 q4 -9 8 -2 q3 -8 7 0" fill="none" stroke="#f07a1a" stroke-width="3" stroke-linecap="round"/>`
-      : `<circle r="17" fill="${l.body}" stroke="${l.shape === 'ball' ? '#7a5a00' : l.accent}" stroke-width="2"/>`;
-  const hat =
-    l.hat === 'pirate'
-      ? `<path d="M-17 -8 Q0 -26 17 -8 Z" fill="#222"/><circle cx="0" cy="-14" r="2.5" fill="#fff"/>`
-      : l.hat === 'cook'
-        ? `<ellipse cx="0" cy="-15" rx="12" ry="7" fill="#fff" stroke="#bbb"/>`
-        : l.hat === 'cap'
-          ? `<path d="M-13 -9 Q0 -24 13 -9 Z" fill="${l.accent}"/>`
-          : l.hat === 'captain'
-            ? `<path d="M-14 -9 Q0 -22 14 -9 Z" fill="#203a6b"/><rect x="-3" y="-17" width="6" height="3" fill="#f4c542"/>`
-            : '';
-  const patch = l.hat === 'pirate' ? `<path d="M-14 -4 L10 2" stroke="#222" stroke-width="2"/><circle cx="-6" cy="-1" r="4" fill="#222"/>` : '';
-  return `<g class="tok">
-    <ellipse cx="0" cy="20" rx="15" ry="5" fill="rgba(0,0,0,.25)"/>
-    <ellipse cx="${l.shape === 'block' ? 8 : 9}" cy="18" rx="8" ry="5" fill="${l.accent}" stroke="rgba(0,0,0,.3)"/>
-    ${body}
-    <circle cx="-6" cy="-3" r="5" fill="#fff" stroke="#333" stroke-width="1"/><circle cx="6" cy="-3" r="5" fill="#fff" stroke="#333" stroke-width="1"/>
-    <circle cx="-5" cy="-4" r="2.2" fill="#222"/><circle cx="7" cy="-4" r="2.2" fill="#222"/>
-    <path d="M-7 7 Q0 13 7 7" fill="none" stroke="#5a2a00" stroke-width="2" stroke-linecap="round"/>
-    ${patch}${hat}
-  </g>`;
+const INK = '#2a2140';
+
+function hatTop(l: CharLook): string {
+  switch (l.hat) {
+    case 'pirate': return `<path d="M0 -20 L18 6 Q0 0 -18 6 Z" fill="#1d1d22" stroke="#000" stroke-width="1.5"/><circle cx="0" cy="-4" r="2.5" fill="#fff"/>`;
+    case 'cook': return `<path d="M-12 0 q-7 -9 1 -14 q4 -9 11 -5 q7 -5 11 4 q8 6 1 15 q-12 5 -24 0z" fill="#fff" stroke="#a8a2b8" stroke-width="1.5"/>`;
+    case 'knit': return `<circle cx="0" cy="-2" r="11" fill="#e8483f" stroke="#9a2620" stroke-width="1.5"/><path d="M-10 -5 h20 M-11 0 h22" stroke="#fff" stroke-width="2.5"/><circle cx="0" cy="-3" r="3.5" fill="#fff"/>`;
+    case 'captain': return `<circle cx="0" cy="-2" r="12" fill="#fff" stroke="#9aa4b5" stroke-width="1.5"/><path d="M-12 -13 q12 -10 24 0 l2 5 h-28z" fill="#1b2d55"/><path d="M-3 -12 l3 -3 l3 3 l-3 3z" fill="#f4c542"/>`;
+    case 'sailor': return `<circle cx="0" cy="-1" r="9" fill="#fff" stroke="#9aa4b5" stroke-width="1.5"/><circle cx="0" cy="-1" r="5" fill="#eef1f6" stroke="#2f6fd8" stroke-width="1.6"/>`;
+    case 'band': return `<path d="M-14 -6 q14 -6 28 0" fill="none" stroke="#d63a2f" stroke-width="4" stroke-linecap="round"/>`;
+    case 'stripes': return `<circle cx="0" cy="0" r="9" fill="#fff" stroke="${l.accent}" stroke-width="1.5"/><path d="M-8 -3 h16 M-9 2 h18" stroke="${l.accent}" stroke-width="2"/>`;
+  }
+  return '';
 }
 
-/** Larger portrait (front view) for dialogs/exchange/menu. viewBox -60 -70 120 140 */
+/** Top-down board token, centred on 0,0, facing up (rotate the group for direction). */
+export function tokenSVG(ch: CharId): string {
+  const l = LOOKS[ch];
+  let body: string;
+  if (ch === 'CH1') {
+    body = `<ellipse cx="-8" cy="17" rx="6" ry="5" fill="#8a5428" stroke="#4a2a10" stroke-width="1.5"/><ellipse cx="8" cy="17" rx="6" ry="5" fill="#8a5428" stroke="#4a2a10" stroke-width="1.5"/>
+      <rect x="-17" y="-15" width="34" height="30" rx="7" fill="#ff9447" stroke="#a84a00" stroke-width="2"/>
+      <rect x="-15" y="-13" width="30" height="24" rx="5" fill="#2f6fd8" stroke="#173f86" stroke-width="1.5"/>
+      <circle cx="-8" cy="-6" r="1.8" fill="#fff"/><circle cx="2" cy="-8" r="1.8" fill="#fff"/><circle cx="9" cy="-3" r="1.8" fill="#fff"/><circle cx="-4" cy="3" r="1.8" fill="#fff"/><circle cx="7" cy="5" r="1.8" fill="#fff"/>
+      <path d="M17 4 l8 3 l-2 6 z M17 4 l8 -4 l1 7 z" fill="#2f6fd8" stroke="#173f86" stroke-width="1.2"/>
+      <ellipse cx="-6" cy="-16" rx="4" ry="3.2" fill="#fff" stroke="${INK}" stroke-width="1"/><ellipse cx="6" cy="-16" rx="4" ry="3.2" fill="#fff" stroke="${INK}" stroke-width="1"/>
+      <circle cx="-6" cy="-17" r="1.8" fill="#1d5fa8"/><circle cx="6" cy="-17" r="1.8" fill="#1d5fa8"/>`;
+  } else if (ch === 'CH2') {
+    body = `<ellipse cx="-8" cy="16" rx="6" ry="4.5" fill="#ffd23f" stroke="#8a6d00" stroke-width="1.5"/><ellipse cx="8" cy="16" rx="6" ry="4.5" fill="#ffd23f" stroke="#8a6d00" stroke-width="1.5"/>
+      <circle r="17" fill="#7ed6a5" stroke="#1f6b5a" stroke-width="2"/>
+      <path d="M0 2 q-6 -8 2 -11 q8 -2 7 6 q-1 5 -6 4 q-4 -1 -2 -4" fill="none" stroke="#1f6b5a" stroke-width="2.5" stroke-linecap="round"/>
+      <ellipse cx="-6" cy="-15" rx="4" ry="3.2" fill="#fff" stroke="${INK}" stroke-width="1"/><ellipse cx="6" cy="-15" rx="4" ry="3.2" fill="#fff" stroke="${INK}" stroke-width="1"/>
+      <circle cx="-6" cy="-16" r="1.8" fill="${INK}"/><circle cx="6" cy="-16" r="1.8" fill="${INK}"/>`;
+  } else {
+    body = `<ellipse cx="-7" cy="16" rx="5.5" ry="4.5" fill="#333" stroke="#111" stroke-width="1"/><ellipse cx="7" cy="16" rx="5.5" ry="4.5" fill="#333" stroke="#111" stroke-width="1"/>
+      <circle r="17" fill="${l.body}" stroke="${l.accent}" stroke-width="2"/>
+      <ellipse cx="-6" cy="-14" rx="4" ry="3.2" fill="#fff" stroke="${INK}" stroke-width="1"/><ellipse cx="6" cy="-14" rx="4" ry="3.2" fill="#fff" stroke="${INK}" stroke-width="1"/>
+      <circle cx="-6" cy="-15" r="1.8" fill="${INK}"/><circle cx="6" cy="-15" r="1.8" fill="${INK}"/>${hatTop(l)}`;
+  }
+  return `<g class="tok"><ellipse cx="3" cy="5" rx="19" ry="17" fill="rgba(0,0,0,.2)"/>${body}</g>`;
+}
+
+function portraitHat(l: CharLook): string {
+  switch (l.hat) {
+    case 'pirate': return `<path d="M-50 -26 Q0 -90 50 -26 Q0 -40 -50 -26 Z" fill="#1d1d22" stroke="#000" stroke-width="2"/><circle cx="0" cy="-48" r="6" fill="#fff"/><path d="M-36 -18 L36 -6" stroke="#1d1d22" stroke-width="3"/><ellipse cx="-14" cy="-12" rx="11" ry="9" fill="#1d1d22"/>`;
+    case 'cook': return `<path d="M-26 -36 h52 v-10 q10 -24 -14 -20 q-12 -20 -26 0 q-24 -4 -12 20z" fill="#fff" stroke="#a8a2b8" stroke-width="2"/><path d="M-16 20 q8 -6 16 0 q8 -6 16 0" fill="#5a3a20"/>`;
+    case 'knit': return `<path d="M-40 -24 Q0 -80 40 -24 Z" fill="#e8483f" stroke="#9a2620" stroke-width="2"/><path d="M-38 -32 h76 M-30 -44 h60" stroke="#fff" stroke-width="5"/><circle cx="0" cy="-60" r="8" fill="#fff" stroke="#bbb"/>`;
+    case 'captain': return `<path d="M-42 -28 q42 -18 84 0 l-4 9 h-76 z" fill="#1b2d55"/><path d="M-36 -34 Q0 -76 36 -34 z" fill="#fff" stroke="#8a93a6" stroke-width="2"/><path d="M-8 -42 l8 -8 l8 8 l-8 8 z" fill="#f4c542"/><path d="M-30 14 q-4 26 30 32 q34 -6 30 -32 q-10 18 -30 18 q-20 0 -30 -18 z" fill="#f4f4f4" stroke="#9aa4b5" stroke-width="1.5"/>`;
+    case 'sailor': return `<path d="M-34 -32 Q0 -70 34 -32 z" fill="#fff" stroke="#8a93a6" stroke-width="2"/><path d="M-36 -32 h72" stroke="#2f6fd8" stroke-width="6" stroke-linecap="round"/>`;
+    case 'band': return `<path d="M-42 -30 q42 -14 84 0" fill="none" stroke="#d63a2f" stroke-width="9" stroke-linecap="round"/>`;
+    case 'stripes': return `<path d="M-40 -28 q40 -40 80 0 q-40 8 -80 0 z" fill="#fff" stroke="${l.accent}" stroke-width="2"/><path d="M-34 -36 q34 -10 68 0" fill="none" stroke="${l.accent}" stroke-width="3"/>`;
+  }
+  return '';
+}
+
+/** Larger portrait (front view) for dialogs/exchange/menu. viewBox -60 -72 120 140 */
 export function portraitSVG(ch: CharId, extra = ''): string {
   const l = LOOKS[ch];
-  const body =
-    l.shape === 'block'
-      ? `<rect x="-38" y="-50" width="76" height="92" rx="16" fill="${l.body}" stroke="#a07800" stroke-width="3"/>
-         <path d="M-10 -50 q6 -22 14 -6 q6 -18 14 -2 q6 -12 10 2" fill="none" stroke="#f07a1a" stroke-width="6" stroke-linecap="round"/>`
-      : `<circle cx="0" cy="-2" r="44" fill="${l.body}" stroke="${l.shape === 'ball' ? '#a07800' : l.accent}" stroke-width="3"/>`;
-  const hat =
-    l.hat === 'pirate'
-      ? `<path d="M-46 -26 Q0 -84 46 -26 Z" fill="#1d1d1d"/><path d="M-8 -48 l8 -8 l8 8 l-8 8z" fill="#fff"/>`
-      : l.hat === 'cook'
-        ? `<path d="M-26 -36 h52 v-10 q10 -24 -14 -20 q-12 -20 -26 0 q-24 -4 -12 20z" fill="#fff" stroke="#ccc" stroke-width="2"/>`
-        : l.hat === 'cap'
-          ? `<path d="M-40 -24 Q0 -76 40 -24 Z" fill="${l.accent}"/><rect x="10" y="-30" width="38" height="8" rx="4" fill="${l.accent}"/>`
-          : l.hat === 'captain'
-            ? `<path d="M-40 -26 Q0 -70 40 -26 Z" fill="#203a6b"/><rect x="-40" y="-30" width="80" height="8" rx="3" fill="#152a50"/><circle cx="0" cy="-44" r="6" fill="#f4c542"/>`
-            : '';
-  const patch = l.hat === 'pirate' ? `<path d="M-40 -18 L36 -4" stroke="#1d1d1d" stroke-width="4"/><ellipse cx="-14" cy="-12" rx="11" ry="9" fill="#1d1d1d"/>` : '';
+  if (ch === 'CH1') {
+    return `<svg viewBox="-60 -72 120 140" class="portrait" aria-hidden="true">
+    <ellipse cx="0" cy="62" rx="40" ry="6" fill="rgba(0,0,0,.18)"/>
+    <rect x="-22" y="34" width="8" height="18" rx="3" fill="#5a3a20"/><rect x="6" y="34" width="8" height="18" rx="3" fill="#5a3a20"/>
+    <path d="M-34 62 v-8 q0 -6 8 -6 h12 q6 0 7 6 v8 z M0 62 v-8 q1 -6 8 -6 h12 q8 0 8 6 v8 z" fill="#8a5428" stroke="#4a2a10" stroke-width="2.5"/>
+    <path d="M-40 6 q-14 4 -16 22 M40 6 q14 -4 16 -20" fill="none" stroke="#a84a00" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-40 6 q-14 4 -16 22 M40 6 q14 -4 16 -20" fill="none" stroke="#ff9447" stroke-width="4" stroke-linecap="round"/>
+    <rect x="-40" y="-58" width="80" height="96" rx="20" fill="#ff9447" stroke="#a84a00" stroke-width="3"/>
+    <path d="M-41 -34 v-4 q0 -21 21 -21 h40 q21 0 21 21 v4 q-41 7 -82 0z" fill="#2f6fd8" stroke="#173f86" stroke-width="2.5"/>
+    <circle cx="-26" cy="-46" r="3" fill="#fff"/><circle cx="-6" cy="-50" r="3" fill="#fff"/><circle cx="14" cy="-48" r="3" fill="#fff"/><circle cx="30" cy="-44" r="2.5" fill="#fff"/><circle cx="-16" cy="-38" r="2.5" fill="#fff"/><circle cx="6" cy="-39" r="2.5" fill="#fff"/>
+    <path d="M38 -46 l16 -9 l-3 13 l11 5 l-17 4 z" fill="#2f6fd8" stroke="#173f86" stroke-width="2.5" stroke-linejoin="round"/>
+    <ellipse cx="-13" cy="-16" rx="11" ry="13" fill="#fff" stroke="${INK}" stroke-width="2.5"/><ellipse cx="13" cy="-16" rx="11" ry="13" fill="#fff" stroke="${INK}" stroke-width="2.5"/>
+    <circle cx="-10" cy="-13" r="5" fill="#1d5fa8"/><circle cx="16" cy="-13" r="5" fill="#1d5fa8"/><circle cx="-9" cy="-15" r="1.8" fill="#fff"/><circle cx="17" cy="-15" r="1.8" fill="#fff"/>
+    <ellipse cx="2" cy="2" rx="7" ry="6" fill="#ff9a3c" stroke="#a84a00" stroke-width="2"/>
+    <path d="M-18 13 q20 20 40 0 q-20 6 -40 0z" fill="#7a1f1f" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/><path d="M-6 16 h14 v4 q-7 2 -14 0z" fill="#fff"/>
+    ${extra}</svg>`;
+  }
+  if (ch === 'CH2') {
+    return `<svg viewBox="-60 -72 120 140" class="portrait" aria-hidden="true">
+    <ellipse cx="0" cy="62" rx="38" ry="6" fill="rgba(0,0,0,.18)"/>
+    <rect x="-16" y="30" width="8" height="24" rx="3" fill="#1f6b5a"/><rect x="8" y="30" width="8" height="24" rx="3" fill="#1f6b5a"/>
+    <path d="M-30 62 q0 -12 16 -12 q8 0 9 12 z M2 62 q1 -12 14 -12 q16 0 16 12 z" fill="#ffd23f" stroke="#8a6d00" stroke-width="2.5"/><path d="M-28 60 h22 M4 60 h26" stroke="#fff" stroke-width="2.5"/>
+    <path d="M-44 8 q-12 10 -10 24 M44 8 q12 10 10 24" fill="none" stroke="#1f6b5a" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-44 8 q-12 10 -10 24 M44 8 q12 10 10 24" fill="none" stroke="#7ed6a5" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="0" cy="-6" r="46" fill="#7ed6a5" stroke="#1f6b5a" stroke-width="3"/>
+    <path d="M0 -52 q-3 -16 10 -19 q11 -1 10 10 q-1 7 -8 6 q-6 -1 -4 -6" fill="none" stroke="#1f6b5a" stroke-width="4.5" stroke-linecap="round"/>
+    <g fill="#e07a5f"><circle cx="-24" cy="4" r="2.2"/><circle cx="-29" cy="-1" r="1.9"/><circle cx="-20" cy="-1" r="1.9"/><circle cx="24" cy="4" r="2.2"/><circle cx="29" cy="-1" r="1.9"/><circle cx="20" cy="-1" r="1.9"/></g>
+    <ellipse cx="-12" cy="-16" rx="10" ry="12" fill="#fff" stroke="${INK}" stroke-width="2.5"/><ellipse cx="12" cy="-16" rx="10" ry="12" fill="#fff" stroke="${INK}" stroke-width="2.5"/>
+    <circle cx="-10" cy="-14" r="4.6" fill="${INK}"/><circle cx="14" cy="-14" r="4.6" fill="${INK}"/><circle cx="-9" cy="-16" r="1.6" fill="#fff"/><circle cx="15" cy="-16" r="1.6" fill="#fff"/>
+    <ellipse cx="1" cy="0" rx="5.5" ry="4.5" fill="#f2a32a"/>
+    <path d="M-17 10 q18 18 36 0 q-18 6 -36 0z" fill="#7a1f1f" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/><path d="M-6 13 h13 v3.5 q-6.5 2 -13 0z" fill="#fff"/>
+    ${extra}</svg>`;
+  }
   return `<svg viewBox="-60 -72 120 140" class="portrait" aria-hidden="true">
     <ellipse cx="0" cy="60" rx="40" ry="7" fill="rgba(0,0,0,.18)"/>
-    <path d="M-12 40 v14 M12 40 v14" stroke="#c0392b" stroke-width="5"/>
-    <ellipse cx="-14" cy="56" rx="16" ry="8" fill="${l.accent}"/><ellipse cx="18" cy="56" rx="16" ry="8" fill="${l.accent}"/>
-    ${body}
-    <ellipse cx="-14" cy="-12" rx="11" ry="13" fill="#fff" stroke="#333" stroke-width="1.5"/><ellipse cx="14" cy="-12" rx="11" ry="13" fill="#fff" stroke="#333" stroke-width="1.5"/>
-    <circle cx="-11" cy="-10" r="5" fill="#2a6bd1"/><circle cx="17" cy="-10" r="5" fill="#2a6bd1"/>
-    <circle cx="-11" cy="-10" r="2.2" fill="#000"/><circle cx="17" cy="-10" r="2.2" fill="#000"/>
-    <ellipse cx="2" cy="4" rx="7" ry="6" fill="${l.shape === 'block' ? '#f5a623' : '#e8a020'}"/>
-    <path d="M-18 16 Q2 34 22 16" fill="#7a1f1f" stroke="#5a1010" stroke-width="2"/>
-    <path d="M-10 18 h8 v5 h-8z M2 18 h8 v5 h-8z" fill="#fff"/>
-    ${patch}${hat}${extra}
+    <path d="M-12 40 v14 M12 40 v14" stroke="${l.accent}" stroke-width="6"/>
+    <path d="M-30 60 q0 -10 14 -10 q10 0 12 10 z M4 60 q1 -10 14 -10 q12 0 14 10 z" fill="#333" stroke="#111" stroke-width="2"/>
+    <circle cx="0" cy="-2" r="44" fill="${l.body}" stroke="${l.accent}" stroke-width="3"/>
+    <ellipse cx="-14" cy="-12" rx="10.5" ry="12.5" fill="#fff" stroke="${INK}" stroke-width="2.2"/><ellipse cx="14" cy="-12" rx="10.5" ry="12.5" fill="#fff" stroke="${INK}" stroke-width="2.2"/>
+    <circle cx="-12" cy="-10" r="4.8" fill="${INK}"/><circle cx="16" cy="-10" r="4.8" fill="${INK}"/><circle cx="-11" cy="-12" r="1.6" fill="#fff"/><circle cx="17" cy="-12" r="1.6" fill="#fff"/>
+    <ellipse cx="1" cy="5" rx="7" ry="6" fill="rgba(0,0,0,.12)" stroke="${l.accent}" stroke-width="2"/>
+    <path d="M-16 18 q17 16 34 0 q-17 6 -34 0z" fill="#7a1f1f" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>
+    ${portraitHat(l)}${extra}
   </svg>`;
 }
 

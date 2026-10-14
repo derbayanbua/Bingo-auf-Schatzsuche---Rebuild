@@ -136,6 +136,15 @@ Bekannte Abweichungen / Fehler:
    * **Sprache/Stimmen:** noch offen (Backlog).
    * **Filme:** noch offen (Backlog).
    * Noch offen: neue Dialogtexte (auf Basis der Transkripte umformulieren).
+   Stand (2026-10-14): Grundlage „neue Grafik“ fertig – Asset-Paket `public/assets/gfx/` (gleiche Member-Nummern,
+   Größen, Registrierpunkte wie das Original, `index.json` + `score/` committet), Pipeline `tools/newart/`
+   (SVG-Generator je Member → webp, `npm run art`, `art:report`, `art:frame`, `art:sheet`; Anleitung + Stilregeln
+   **`tools/newart/README.md`**), Figuren-Kit Bongo/Pucki/NPCs, Brettfiguren, alle Gegenstände, Interface.
+   Fertig gezeichnet: Shared_Graphic-1/-2, Shared_Interface, Shared_Inventar, Interface_Main, AS001-01, AS001-02,
+   SP001; alle anderen Filme zeigen Platzhalter (Bretter/Kapitelkarten/Intro ohne vollständige Grafik: Vektoransicht
+   bzw. eigene Karte). Figurennamen im UI: Bongo, Pucki, Käpt’n Reling (CH3), Alfons (CH4), Mats (CH5), Bert (CH6),
+   Arno (CH7), Tom (CH8), Rocko (CH9) – `src/game/names.ts`; intern bleiben `Bingo`/`Puck`, CHn und Member-Namen.
+   Nächster Schritt: Filme gruppenweise zeichnen (parallele Agenten, je `tools/newart/scenes/<Dir>_<Movie>.ts`).
 2. Tauchen (GS005-06) und Segeln (GS020-04) von Menschen durchspielen lassen; Knopfgrößen auf dem Handy; Untertitel korrigieren.
 
 ## Original-Assets (optional, nur private Nutzung)
@@ -148,7 +157,8 @@ Der Besitzer des Originals kann dessen Grafiken lokal einspielen. Sie liegen in 
 * Grafik-Export: `python -P D:\Workspace_D\bingo\tools\export_graphics.py [--force] [Filter]` (benötigt `analysis/img` + `analysis/score`) →
   `public/orig/gfx/<Dir>_<Movie>/<Member-Nr>.webp` (Transparenz aus Ink gebacken: matte = Weiß-Flutfüllung vom Rand, backgroundTransparent = alles Weiß),
   `gfx/index.json` (`{dir:{member:[w,h,regX,regY,name]}}`), `gfx/score/<Dir>_<Movie>.json` (Laufzeit-Score: libs, labels, Frames mit Sprites `[ch,castLib,member,left,top,w,h,ink,blend,behaviors,name]`, Behavior-Parameter als JSON). ~50 MB.
-* Laufzeit: `src/orig/gfx.ts` (Index, `hasOriginalGfx()`, Item-Icons, Cursor), `src/orig/stage.ts` (Director-artige Sprite-Bühne: `loadMovie`, `Movie.member/frame/sequence`, `Stage.sprite(ch)`, Alpha-Hit-Test, `on(ch,'mouseUp',fn)`, `playSequence`, `onTick`),
+* Laufzeit: `src/orig/gfx.ts` (Index, Paketwahl Original/„neue Grafik“ (`public/assets/gfx`, Einstellung „Originalgrafik verwenden“,
+  `gfxPack()`, `hasMovieArt(id)`), `hasOriginalGfx()` = irgendein Sprite-Paket aktiv, Item-Icons, Cursor), `src/orig/stage.ts` (Director-artige Sprite-Bühne: `loadMovie`, `Movie.member/frame/sequence`, `Stage.sprite(ch)`, Alpha-Hit-Test, `on(ch,'mouseUp',fn)`, `playSequence`, `onTick`),
   `src/orig/sceneView.ts` (Original-Szenenansicht über der generischen Engine; szenenspezifische Ports per `registerOrigScene(id, scene => …)`). `app.ts` nutzt sie automatisch, wenn `public/orig/gfx/index.json` existiert.
 * Audio/Video/Frames: `sound.ts` (Kanäle), `voice.ts` (talk + Mund + Untertitel aus `audio/transcripts.json`), `media.ts` (`playSmacker`),
   `movieAudio.ts` (Music/Ambient Controller), `score.ts` (Frame-Wiedergabe), `screens.ts` (Kapitelkarten, Intro, Hauptmenü-Stimme, `startChapter`).

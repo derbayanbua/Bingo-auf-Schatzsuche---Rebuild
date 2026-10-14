@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--port", "5173", "--strictPort"],
       "port": 5173
+    },
+    {
+      "name": "schatzsuche-newart",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5288", "--strictPort"],
+      "port": 5288
     }
   ]
 }

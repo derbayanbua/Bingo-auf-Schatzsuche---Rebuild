@@ -2,7 +2,7 @@
 // and the voice of the main menu (Interface\Main). Plus the chapter-change hook for scene ports.
 // All functions degrade to "nothing happened" (false / immediate resolve) without public/orig.
 
-import { hasOriginalGfx } from './gfx';
+import { hasMovieArt } from './gfx';
 import { applyMovieAudio } from './movieAudio';
 import { ScorePlayer } from './score';
 import { isAudioRunning, isVoiceBusy, playEffect, playVoice, stopVoice } from './sound';
@@ -54,7 +54,8 @@ function rolloverFader(stage: Stage, sp: Sprite): void {
  * showing anything) when the originals are missing.
  */
 export async function chapterScreen(host: HTMLElement, n: 1 | 2 | 3, onNext?: () => Promise<void>): Promise<boolean> {
-  if (!hasOriginalGfx()) return false;
+  // new art pack: only when the chapter card is fully drawn (else the app shows its own card)
+  if (!hasMovieArt(`Chapter-${n}`)) return false;
   const movie = await loadMovie(`Chapter-${n}`);
   if (!movie?.frame(1)) return false;
   const stage = fullStage('chapter-orig');
@@ -122,7 +123,7 @@ export async function chapterScreen(host: HTMLElement, n: 1 | 2 | 3, onNext?: ()
  * false without originals.
  */
 export async function introScreen(host: HTMLElement, fps = 15): Promise<boolean> {
-  if (!hasOriginalGfx()) return false;
+  if (!hasMovieArt('Intro')) return false;
   const movie = await loadMovie('Intro');
   if (!movie?.frame(1)) return false;
   const stage = fullStage('intro-orig');

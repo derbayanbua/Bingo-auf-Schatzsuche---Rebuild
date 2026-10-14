@@ -192,7 +192,7 @@ export function parseSave(input: string | unknown): SaveFile {
       fail('Die Datei ist keine gültige JSON-Datei.');
     }
   }
-  if (!isObj(obj) || obj.format !== SAVE_FORMAT) fail('Die Datei ist kein Spielstand von „Bingo auf Schatzsuche“.');
+  if (!isObj(obj) || obj.format !== SAVE_FORMAT) fail('Die Datei ist kein Spielstand von „Bongo auf Schatzsuche“.');
   if (typeof obj.version !== 'number' || !Number.isInteger(obj.version) || obj.version < 1) fail('Unbekannte Spielstand-Version.');
   const m = migrate(obj);
   const game = validateGame(m.game);

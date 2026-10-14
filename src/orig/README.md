@@ -3,6 +3,11 @@
 Everything here is optional: without `public/orig/` all functions are silent no-ops
 (`false` / immediate resolve) and the game uses its own vector art + synth sounds.
 
+Graphics come from one of two packs with identical layout (`gfx.ts`): the originals (`public/orig/gfx`, private)
+or the game's own „neue Grafik“ (`public/assets/gfx`, committed, built by `tools/newart` – see its README).
+`hasOriginalGfx()` means "a sprite pack is active"; `gfxPack()` tells which; `hasMovieArt(id)` whether a movie
+is fully drawn in the active pack. Audio/video stay original-only (`hasOriginals()`).
+
 | File | Purpose |
 |---|---|
 | `assets.ts` | manifest + audio index (`loadOriginalAssets`, `hasOriginals`, `soundUrl`, `soundKey`, `videoUrl`, `musicUrl`) |

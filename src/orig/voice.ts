@@ -8,6 +8,7 @@
 // bubble with the text from public/orig/audio/transcripts.json (machine transcription, loaded lazily,
 // may be incomplete: missing keys simply show no subtitle). Subtitles can be switched off globally.
 
+import { displayName } from '../game/names';
 import { soundKey, transcriptsUrl } from './assets';
 import { onVoiceLevel, playVoice, stopVoice } from './sound';
 import type { Stage } from './stage';
@@ -63,7 +64,7 @@ function showSubtitle(text: string, speaker: string | undefined, host: HTMLEleme
   el.setAttribute('aria-live', 'polite');
   if (speaker) {
     const b = document.createElement('b');
-    b.textContent = `${speaker}: `;
+    b.textContent = `${displayName(speaker)}: `;
     el.append(b);
   }
   el.append(document.createTextNode(text));
