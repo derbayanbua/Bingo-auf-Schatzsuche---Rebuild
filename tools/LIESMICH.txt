@@ -1,0 +1,53 @@
+﻿BINGO AUF SCHATZSUCHE - Neuentwicklung für den Browser (Fan-Projekt)
+=====================================================================
+
+SPIELEN (ohne Originalgrafik)
+-----------------------------
+"Spiel starten.cmd" doppelklicken. Der Browser öffnet sich mit dem Spiel.
+Das schwarze Fenster dabei offen lassen - Schließen beendet das Spiel.
+
+MIT ORIGINALGRAFIK UND -TON SPIELEN (nur mit eigener Original-CD)
+-----------------------------------------------------------------
+Sie brauchen: die Original-CD "Bingo auf Schatzsuche" (oder das installierte
+Spiel PLUS die CD für die Videos), Windows 10 oder 11, Internet (nur beim
+ersten Mal), ca. 500 MB freien Speicher und 10-20 Minuten Zeit.
+
+ 1. Diesen Ordner an einen festen Platz legen, z. B. "Dokumente\Bingo".
+    (Wichtig: Die ZIP-Datei vorher ganz entpacken - Rechtsklick auf die
+    ZIP-Datei > "Alle extrahieren...". Nicht direkt aus der ZIP starten.)
+ 2. Original-CD einlegen (eine ISO-Datei per Doppelklick öffnen).
+ 3. "Originaldateien importieren.cmd" doppelklicken.
+    - Die CD wird automatisch gesucht. Wird sie nicht gefunden, öffnet sich
+      ein Fenster: dort das CD-Laufwerk bzw. den Spielordner auswählen.
+    - Fehlt "Python", fragt das Programm, ob es Python installieren soll:
+      "Ja" klicken.
+    - Dann läuft alles von selbst. Fortschritt steht im Fenster.
+ 4. Am Ende erscheint "erfolgreich geladen" - "Ja" startet das Spiel.
+    Später einfach wieder "Spiel starten.cmd" doppelklicken.
+
+Erneutes Ausführen schadet nicht. Die CD wird nur gelesen, nie verändert.
+
+PROBLEME?
+---------
+* "Der Computer wurde durch Windows geschützt": auf "Weitere Informationen"
+  und dann "Trotzdem ausführen" klicken.
+* CD nicht gefunden: kurz warten, bis Windows die CD erkannt hat, dann neu
+  starten - oder im Auswahlfenster das CD-Laufwerk selbst wählen.
+* Python-Installation klappt nicht: python.org/downloads öffnen, Python 3
+  installieren, dabei "Add python.exe to PATH" anhaken, Programm neu starten.
+* Virenschutz meldet sich: Die Hilfsprogramme ProjectorRays und ffmpeg werden
+  von github.com geladen (ProjectorRays mit Prüfsumme). Ggf. erlauben.
+* Spiel auf Tablet/Handy im WLAN: Eingabeaufforderung in diesem Ordner öffnen
+  und  "Spiel starten.cmd" -Lan  eingeben; die angezeigte Adresse
+  (http://192.168...:8080/) auf dem Tablet öffnen. Evtl. sind dafür
+  Administratorrechte nötig und die Windows-Firewall fragt nach.
+* Ausführliche Anleitung: README auf der GitHub-Projektseite,
+  Abschnitt "Mit Originalgrafik und -ton spielen".
+
+RECHTLICHES - BITTE BEACHTEN
+----------------------------
+Die Originalgrafiken, Videos, Musik und Stimmen sind urheberrechtlich
+geschützt. Der Ordner "orig" ist NUR für den privaten Gebrauch mit Ihrer
+eigenen Original-CD. Niemals weitergeben, hochladen oder ins Internet
+stellen. Dieses Fan-Projekt steht in keiner Verbindung zu den Rechteinhabern.
+Nutzung auf eigene Gefahr, ohne Gewährleistung.

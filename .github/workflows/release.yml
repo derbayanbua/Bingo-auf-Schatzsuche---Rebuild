@@ -1,0 +1,54 @@
+name: Release (Heimspiel-Paket)
+
+# Baut das fertige Windows-Paket "Bingo-Schatzsuche-Spiel.zip" (Spiel + Importer fuer die eigene Original-CD,
+# OHNE Originalmedien) und haengt es an ein GitHub-Release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag fuer das Release (z. B. v0.1.0); leer = nur bauen, ZIP als Workflow-Artefakt'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build + ZIP
+        shell: pwsh
+        run: ./tools/make-release-zip.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bingo-Schatzsuche-Spiel
+          path: release/Bingo-Schatzsuche-Spiel.zip
+      - name: GitHub-Release erstellen
+        if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || github.event.inputs.tag }}
+        run: |
+          $notes = @"
+          **Zum Spielen unter Windows:** ``Bingo-Schatzsuche-Spiel.zip`` herunterladen, entpacken (Rechtsklick > Alle extrahieren), ``Spiel starten.cmd`` doppelklicken.
+
+          **Mit Originalgrafik und -ton (nur mit eigener Original-CD):** vorher ``Originaldateien importieren.cmd`` doppelklicken. Anleitung: ``LIESMICH.txt`` bzw. README, Abschnitt "Mit Originalgrafik und -ton spielen".
+
+          Das Paket enthaelt keine Originaldateien. Development Build - Nutzung auf eigene Gefahr.
+          "@
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG release/Bingo-Schatzsuche-Spiel.zip --clobber
+          } else {
+            gh release create $env:TAG release/Bingo-Schatzsuche-Spiel.zip --title "Bingo auf Schatzsuche $env:TAG" --notes $notes --prerelease --target $env:GITHUB_SHA
+          }

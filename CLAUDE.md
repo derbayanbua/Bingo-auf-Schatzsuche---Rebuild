@@ -124,6 +124,9 @@ Bekannte Abweichungen / Fehler:
 
 ## Original-Assets (optional, nur private Nutzung)
 
+Endnutzer-Weg: Release-ZIP (`tools/make-release-zip.ps1`, `.github/workflows/release.yml` bei Tag `v*`) → `Originaldateien importieren.cmd`
+(Importer aus `tools/`, per Vite-Plugin neben `index.html` nach `dist/` kopiert; Pages-Build mit `BINGO_OHNE_IMPORTER=1`). Im `.ps1` keine
+typografischen Anführungszeichen „“ verwenden (PowerShell wertet sie als `"`) – stattdessen »«.
 Der Besitzer des Originals kann dessen Grafiken lokal einspielen. Sie liegen in `public/orig/` (gitignored, **nicht weitergeben/veröffentlichen**); ohne den Ordner läuft das Spiel unverändert mit eigener Vektorgrafik.
 
 * Grafik-Export: `python -P D:\Workspace_D\bingo\tools\export_graphics.py [--force] [Filter]` (benötigt `analysis/img` + `analysis/score`) →

@@ -4,3 +4,4 @@ public/orig/
 /orig/
 tools/.cache/
 __pycache__/
+release/
