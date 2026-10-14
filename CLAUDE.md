@@ -128,8 +128,14 @@ Bekannte Abweichungen / Fehler:
    Alles aus dem Original (Szenen, Sprite-Positionen, Animationen, Abläufe, Dialoge, Minispiele) wird 1:1 in das neue System
    migriert, aber mit **neu erzeugten Grafiken, Tönen und Stimmen** und **leicht abgewandelten Figuren** (eigene Namen/Designs),
    sodass das Spiel ohne Originaldateien vollständig spielbar und veröffentlichbar ist. Die Originalmedien dienen nur noch als
-   Referenz (Layout, Timing, Inhalt). Offene Grundsatzentscheidungen: Grafik-Erzeugung (Werkzeug/Stil), Sprache (Sprecher/TTS),
-   Ersatz der Filme, neue Figurennamen/-designs, neue Dialogtexte.
+   Referenz (Layout, Timing, Inhalt).
+   Entscheidungen (2026-10-14):
+   * **Grafiken:** mit **Claude Design in der Claude-Desktop-App** erzeugen (Design-Artefakte), Original-Layouts/Sprite-Rechtecke
+     aus `public/orig/gfx/score/*.json` als Vorgabe; Export als Webp/SVG in ein eigenes Asset-Paket (z. B. `public/assets/`).
+   * **Figuren:** ähnliche Figuren mit ähnlichen Namen (an Bingo/Puck angelehnt, aber eigenständig gestaltet).
+   * **Sprache/Stimmen:** noch offen (Backlog).
+   * **Filme:** noch offen (Backlog).
+   * Noch offen: neue Dialogtexte (auf Basis der Transkripte umformulieren).
 2. Tauchen (GS005-06) und Segeln (GS020-04) von Menschen durchspielen lassen; Knopfgrößen auf dem Handy; Untertitel korrigieren.
 
 ## Original-Assets (optional, nur private Nutzung)
