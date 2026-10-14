@@ -81,3 +81,27 @@ Die maschinell erstellten Untertitel und Rekonstruktionen können Fehler enthalt
 Die Software wird **ohne jede Gewährleistung** bereitgestellt („as is“). Nutzung **auf eigene Gefahr**.
 Die Autoren haften nicht für Schäden, Datenverlust oder Rechtsfolgen, die aus der Nutzung entstehen.
 Spielstände werden nur lokal im Browser bzw. in heruntergeladenen Dateien gespeichert; es werden keine Daten an einen Server übertragen.
+
+## Originaldateien für Heimspiel laden
+
+Wer die Original-CD (oder eine Installation) von „Bingo auf Schatzsuche“ besitzt, kann deren Videos, Musik, Sprache/Effekte
+und Grafiken **für das private Spielen zu Hause** in diese Neuentwicklung laden. Ohne diese Dateien läuft das Spiel mit eigener Grafik.
+
+**Nur für den privaten Gebrauch:** Die Originaldateien sind urheberrechtlich geschützt. Der erzeugte Ordner `orig`
+darf **nicht** weitergegeben, hochgeladen oder öffentlich gehostet werden (er ist per `.gitignore` ausgeschlossen).
+
+Voraussetzung: Windows und [Python 3](https://www.python.org/downloads/) (ab 3.8). Pillow, ProjectorRays (v0.2.0) und ffmpeg
+lädt das Skript beim ersten Lauf selbst (nach `tools\.cache\`). Die CD bzw. der Installationsordner wird nur gelesen.
+
+1. CD einlegen.
+2. `tools\Originaldateien importieren.cmd` doppelklicken (sucht die CD selbst) oder in PowerShell:
+   ```powershell
+   .\tools\Originaldateien-importieren.ps1 -Quelle E:\
+   # Installation ohne Video-Ordner: Videos von der CD dazunehmen
+   .\tools\Originaldateien-importieren.ps1 -Quelle "C:\Programme\Schatzsuche" -Video E:\Video
+   ```
+3. Spiel starten: `npm run dev` (bzw. nach `npm run build` → `dist\Spiel starten.cmd`).
+
+Ziel ist `public\orig` (im Repository) bzw. `orig\` neben `index.html`, wenn das Skript in einem gebauten `dist\tools\` liegt; abweichend mit `-Ziel`.
+Weitere Optionen: `-Untertitel` (Untertitel per lokaler Spracherkennung, dauert lange), `-Neu` (alles neu erzeugen),
+`-Arbeitsordner`/`-Behalten` (Zwischendateien). Dauer ca. 10–20 Minuten, Ergebnis ca. 190 MB. Erneutes Ausführen ist unbedenklich.
