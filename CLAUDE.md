@@ -145,6 +145,13 @@ Bekannte Abweichungen / Fehler:
    bzw. eigene Karte). Figurennamen im UI: Bongo, Pucki, Käpt’n Reling (CH3), Alfons (CH4), Mats (CH5), Bert (CH6),
    Arno (CH7), Tom (CH8), Rocko (CH9) – `src/game/names.ts`; intern bleiben `Bingo`/`Puck`, CHn und Member-Namen.
    Nächster Schritt: Filme gruppenweise zeichnen (parallele Agenten, je `tools/newart/scenes/<Dir>_<Movie>.ts`).
+   **Priorität (Auftrag 2026-10-14): nur Kapitel 1 fertigstellen (inkl. Test, dann Commit „Chapter 1“), alles andere pausiert.**
+   Kapitel-1-Umfang: Bretter SP002–SP019, Exchange, AS004–AS019, GS001/GS005-01..06/GS008/GS009-01/02/GS016,
+   dazu die von Kapitel 1 benötigten Interface-Filme (Play, Help, Hint, Pocket, File/Load, Settings, Security, Quit,
+   Lessons/Lesson1-4, Team), Chapter-1 und Intro.
+   **Pausiert (später fortsetzen, `npm run art:report` zeigt den Stand):** Schatzinsel-Bretter SP031–SP048
+   (WIP-Baukasten `tools/newart/lib/island.ts` committet), Kapitel 2 (AS020-xx, GS020-xx), Kapitel 3 + Ende
+   (AS030–AS060, GS032/042/044/050), Chapter-2/-3.
 2. Tauchen (GS005-06) und Segeln (GS020-04) von Menschen durchspielen lassen; Knopfgrößen auf dem Handy; Untertitel korrigieren.
 
 ## Original-Assets (optional, nur private Nutzung)
