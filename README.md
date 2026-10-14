@@ -39,7 +39,7 @@ Ohne diese Dateien läuft das Spiel mit eigenen Vektorgrafiken und synthetischen
 
 **Fertigen Build spielen (Windows, ohne Installation):** `dist/Spiel starten.cmd` doppelklicken –
 startet einen kleinen lokalen Webserver (nur Windows-PowerShell) und öffnet den Browser.
-Mit `"Spiel starten.cmd" -Lan` ist das Spiel auch für andere Geräte im WLAN erreichbar.
+Mit `"Spiel starten.cmd" -Lan` ist das Spiel auch für andere Geräte im (W)LAN erreichbar.
 
 Ein direktes Öffnen der `index.html` per Doppelklick (`file://`) funktioniert nicht, weil Browser dort das Nachladen der Spieldaten blockieren.
 
